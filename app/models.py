@@ -66,6 +66,10 @@ class Usuario(Base):
 
 class Producto(Base):
     __tablename__ = "productos"
+    __table_args__ = (
+        CheckConstraint("precio_venta > 0", name="chk_precio_positivo"),
+        CheckConstraint("stock_actual >= 0", name="chk_stock_no_negativo"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     categoria_id = Column(Integer, ForeignKey("categorias.id"), nullable=False)
@@ -82,10 +86,6 @@ class Producto(Base):
 
 class Pedido(Base):
     __tablename__ = "pedidos"
-    __table_args__ = (
-        CheckConstraint("precio_venta > 0", name="chk_precio_positivo"),
-        CheckConstraint("stock_actual >= 0", name="chk_stock_no_negativo"),
-    )
 
     id = Column(Integer, primary_key=True, index=True)
     cliente_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)

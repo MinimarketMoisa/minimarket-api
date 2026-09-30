@@ -32,7 +32,7 @@ class CategoriaResponse(CategoriaBase):
 
 # --- ESQUEMAS DE PRODUCTO ---
 class ProductoBase(BaseModel):
-    categoria_id: int
+    categoria_id: int = Field(..., gt=0)
     nombre_producto: str
     descripcion_producto: str | None = None
     precio_venta: Decimal = Field(..., gt=0, description="El precio debe ser estrictamente mayor a 0")

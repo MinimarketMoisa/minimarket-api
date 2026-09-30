@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List
 
 from . import models, schemas
@@ -36,9 +37,23 @@ def listar_categorias(db: Session = Depends(get_db)):
 
 @app.post("/api/categorias/", response_model=schemas.CategoriaResponse, status_code=status.HTTP_201_CREATED, tags=["Categorías"])
 def crear_categoria(categoria: schemas.CategoriaCreate, db: Session = Depends(get_db)):
+    existente = db.query(models.Categoria).filter(models.Categoria.nombre == categoria.nombre).first()
+    if existente:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ya existe una categoría con el nombre '{categoria.nombre}'.",
+        )
+
     db_cat = models.Categoria(**categoria.model_dump())
     db.add(db_cat)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Ya existe una categoría con el nombre '{categoria.nombre}'.",
+        )
     db.refresh(db_cat)
     return db_cat
 
@@ -50,6 +65,13 @@ def listar_productos(db: Session = Depends(get_db)):
 
 @app.post("/api/productos/", response_model=schemas.ProductoResponse, status_code=status.HTTP_201_CREATED, tags=["Productos"])
 def crear_producto(producto: schemas.ProductoCreate, db: Session = Depends(get_db)):
+    categoria = db.query(models.Categoria).filter(models.Categoria.id == producto.categoria_id).first()
+    if not categoria:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"La categoría #{producto.categoria_id} no existe. Crea la categoría antes del producto.",
+        )
+
     db_prod = models.Producto(**producto.model_dump())
     db.add(db_prod)
     db.commit()
