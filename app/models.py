@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, DateTime, ForeignKey, CheckConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -82,6 +82,10 @@ class Producto(Base):
 
 class Pedido(Base):
     __tablename__ = "pedidos"
+    __table_args__ = (
+        CheckConstraint("precio_venta > 0", name="chk_precio_positivo"),
+        CheckConstraint("stock_actual >= 0", name="chk_stock_no_negativo"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     cliente_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, List
 from decimal import Decimal
 from datetime import datetime
@@ -34,10 +34,10 @@ class CategoriaResponse(CategoriaBase):
 class ProductoBase(BaseModel):
     categoria_id: int
     nombre_producto: str
-    descripcion_producto: Optional[str] = None
-    precio_venta: Decimal
-    stock_actual: int
-    imagen: Optional[str] = None
+    descripcion_producto: str | None = None
+    precio_venta: Decimal = Field(..., gt=0, description="El precio debe ser estrictamente mayor a 0")
+    stock_actual: int = Field(..., ge=0, description="El stock no puede ser negativo")
+    imagen: str | None = None
     disponible: bool = True
 
 class ProductoCreate(ProductoBase):
@@ -131,14 +131,13 @@ class UsuarioUpdate(BaseModel):
 
 # --- ESQUEMAS DE ACTUALIZACIÓN DE PRODUCTO ---
 class ProductoUpdate(BaseModel):
-    categoria_id: Optional[int] = None
-    nombre_producto: Optional[str] = None
-    descripcion_producto: Optional[str] = None
-    precio_venta: Optional[Decimal] = None
-    stock_actual: Optional[int] = None
-    imagen: Optional[str] = None
-    disponible: Optional[bool] = None
-
+    categoria_id: int | None = None
+    nombre_producto: str | None = None
+    descripcion_producto: str | None = None
+    precio_venta: Decimal | None = Field(None, gt=0)
+    stock_actual: int | None = Field(None, ge=0)
+    imagen: str | None = None
+    disponible: bool | None = None
 # --- ESQUEMA PARA CAMBIAR ESTADO / ASIGNAR REPARTIDOR EN PEDIDO ---
 class PedidoUpdateEstado(BaseModel):
     estado: Optional[str] = None  # PENDIENTE, EN_RUTA, ENTREGADO, CANCELADO
