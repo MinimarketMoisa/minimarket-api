@@ -11,5 +11,5 @@ API REST construida con **FastAPI**, **SQLAlchemy** y **PostgreSQL** para la ges
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone <git@github.com:HenryDev07/MinimarketMoisa.git>
+   git clone <git@github.com:MinimarketMoisa/minimarket-api.git>
    cd minimarket-backend
