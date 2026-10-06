@@ -1,157 +1,177 @@
-from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional, List
+from datetime import date, datetime
 from decimal import Decimal
-from datetime import datetime
+from typing import Annotated, Literal, Optional
 
-# --- ESQUEMAS DE ROL ---
-class RolBase(BaseModel):
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, PlainSerializer
+
+# En el JSON los montos y coordenadas salen como numero (no como texto)
+Num = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
+
+TipoEntrega = Literal["DOMICILIO", "RETIRO"]
+MetodoPago = Literal["CONTRA_ENTREGA", "TRANSFERENCIA"]
+Canal = Literal["APP", "WEB"]
+EstadoPedido = Literal["PENDIENTE", "PREPARADO", "EN_RUTA", "ENTREGADO", "CANCELADO"]
+EstadoPago = Literal["PENDIENTE", "PAGADO"]
+EstadoRepartidor = Literal["LIBRE", "PENDIENTE"]
+
+
+class ORM(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+
+# ---- Autenticacion ----
+class RegistroIn(BaseModel):
+    nombre_completo: str = Field(min_length=2, max_length=150)
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    telefono: Optional[str] = Field(default=None, max_length=20)
+
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    id_usuario: int
+    rol: str
+
+
+class UsuarioOut(BaseModel):
+    id_usuario: int
+    nombre_completo: str
+    email: str
+    telefono: Optional[str] = None
+    rol: str
+
+
+# ---- Catalogo ----
+class MunicipioOut(ORM):
+    id_municipio: int
     nombre: str
-    descripcion: Optional[str] = None
-
-class RolCreate(RolBase):
-    pass
-
-class RolResponse(RolBase):
-    id: int
-    model_config = ConfigDict(from_attributes=True)
 
 
-# --- ESQUEMAS DE CATEGORÍA ---
-class CategoriaBase(BaseModel):
-    nombre: str
-    descripcion: Optional[str] = None
-    activa: bool = True
-
-class CategoriaCreate(CategoriaBase):
-    pass
-
-class CategoriaResponse(CategoriaBase):
-    id: int
-    model_config = ConfigDict(from_attributes=True)
-
-
-# --- ESQUEMAS DE PRODUCTO ---
-class ProductoBase(BaseModel):
-    categoria_id: int
-    nombre_producto: str
-    descripcion_producto: str | None = None
-    precio_venta: Decimal = Field(..., gt=0, description="El precio debe ser estrictamente mayor a 0")
-    stock_actual: int = Field(..., ge=0, description="El stock no puede ser negativo")
-    imagen: str | None = None
-    disponible: bool = True
-
-class ProductoCreate(ProductoBase):
-    pass
-
-class ProductoResponse(ProductoBase):
-    id: int
-    model_config = ConfigDict(from_attributes=True)
-
-
-# --- ESQUEMAS DE SUCURSAL ---
-class SucursalBase(BaseModel):
+class SucursalOut(ORM):
+    id_sucursal: int
+    id_municipio: int
     nombre: str
     direccion: str
-    telefono: str
-    correo_contacto: Optional[str] = None
-    activa: bool = True
-
-class SucursalCreate(SucursalBase):
-    pass
-
-class SucursalResponse(SucursalBase):
-    id: int
-    model_config = ConfigDict(from_attributes=True)
-
-
-# --- ESQUEMAS DE USUARIO ---
-class UsuarioBase(BaseModel):
-    rol_id: int
-    nombre_usuario: str
-    email: str
-    nombre_completo: str
     telefono: Optional[str] = None
-    direccion_entrega: Optional[str] = None
-    activo: bool = True
-
-class UsuarioCreate(UsuarioBase):
-    password: str
-
-class UsuarioResponse(UsuarioBase):
-    id: int
-    model_config = ConfigDict(from_attributes=True)
+    latitud: Num
+    longitud: Num
 
 
-# --- ESQUEMAS DE PEDIDO ---
-class DetallePedidoCreate(BaseModel):
-    producto_id: int
+class CategoriaOut(ORM):
+    id_categoria: int
+    nombre: str
+    descripcion: Optional[str] = None
+
+
+class ProductoOut(ORM):
+    id_producto: int
+    id_categoria: int
+    nombre: str
+    descripcion: Optional[str] = None
+    precio_base: Num
+    imagen_url: Optional[str] = None
+    activo: bool
+
+
+class ProductoIn(BaseModel):
+    id_categoria: int
+    nombre: str = Field(min_length=1, max_length=200)
+    descripcion: Optional[str] = Field(default=None, max_length=1000)
+    codigo_barras: Optional[str] = Field(default=None, max_length=50)
+    precio_base: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    imagen_url: Optional[str] = Field(default=None, max_length=500)
+
+
+class DisponibilidadOut(BaseModel):
+    id_sucursal: int
+    nombre_sucursal: str
+    stock_disponible: int
+
+
+# ---- Direcciones ----
+class DireccionIn(BaseModel):
+    id_municipio: int
+    detalle_direccion: str = Field(min_length=3, max_length=300)
+    punto_referencia: Optional[str] = Field(default=None, max_length=300)
+
+
+class DireccionOut(ORM):
+    id_direccion: int
+    id_municipio: int
+    detalle_direccion: str
+    punto_referencia: Optional[str] = None
+
+
+# ---- Pedidos ----
+class PedidoItemIn(BaseModel):
+    id_producto: int
+    cantidad: int = Field(gt=0, le=1000)
+
+
+class PedidoIn(BaseModel):
+    items: list[PedidoItemIn] = Field(min_length=1)
+    tipo_entrega: TipoEntrega
+    metodo_pago: MetodoPago
+    canal: Canal
+    id_direccion: Optional[int] = None   # obligatorio si es DOMICILIO
+    id_sucursal: Optional[int] = None    # obligatorio si es RETIRO
+
+
+class DetalleOut(BaseModel):
+    id_producto: int
+    nombre_producto: str
     cantidad: int
+    precio_unitario: Num
+    subtotal: Num
 
-class DetallePedidoResponse(BaseModel):
-    id: int
-    producto_id: int
-    cantidad: int
-    precio_unitario: Decimal
-    subtotal: Decimal
-    model_config = ConfigDict(from_attributes=True)
 
-class PedidoCreate(BaseModel):
-    cliente_id: int
-    sucursal_id: int
-    metodo_pago: str
+class PedidoOut(BaseModel):
+    id_pedido: int
+    id_cliente: int
+    id_sucursal: int
+    id_repartidor: Optional[int] = None
+    id_direccion: Optional[int] = None
+    canal: str
     tipo_entrega: str
-    direccion_destino: str
-    detalles: List[DetallePedidoCreate]
-
-class PedidoResponse(BaseModel):
-    id: int
-    cliente_id: int
-    repartidor_id: Optional[int] = None
-    sucursal_id: int
+    metodo_pago: str
     estado: str
-    metodo_pago: str
-    tipo_entrega: str
-    direccion_destino: str
-    total_orden: Decimal
-    fecha_pedido: datetime
-    detalles: List[DetallePedidoResponse]
-    model_config = ConfigDict(from_attributes=True)
+    estado_pago: str
+    costo_envio: Num
+    total: Num
+    fecha_creacion: Optional[datetime] = None
+    detalles: list[DetalleOut]
 
-    # --- ESQUEMAS DE ACTUALIZACIÓN DE USUARIO Y ROL ---
-class RolUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
 
-class UsuarioUpdate(BaseModel):
-    rol_id: Optional[int] = None
-    nombre_completo: Optional[str] = None
-    telefono: Optional[str] = None
-    direccion_entrega: Optional[str] = None
-    activo: Optional[bool] = None
+class EstadoIn(BaseModel):
+    estado: EstadoPedido
 
-# --- ESQUEMAS DE ACTUALIZACIÓN DE PRODUCTO ---
-class ProductoUpdate(BaseModel):
-    categoria_id: int | None = None
-    nombre_producto: str | None = None
-    descripcion_producto: str | None = None
-    precio_venta: Decimal | None = Field(None, gt=0)
-    stock_actual: int | None = Field(None, ge=0)
-    imagen: str | None = None
-    disponible: bool | None = None
-# --- ESQUEMA PARA CAMBIAR ESTADO / ASIGNAR REPARTIDOR EN PEDIDO ---
-class PedidoUpdateEstado(BaseModel):
-    estado: Optional[str] = None  # PENDIENTE, EN_RUTA, ENTREGADO, CANCELADO
-    repartidor_id: Optional[int] = None
 
-    # --- ACTUALIZACIÓN DE CATEGORÍA Y SUCURSAL ---
-class CategoriaUpdate(BaseModel):
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
-    activa: Optional[bool] = None
+class PagoIn(BaseModel):
+    estado_pago: EstadoPago
 
-class SucursalUpdate(BaseModel):
-    nombre: Optional[str] = None
-    direccion: Optional[str] = None
-    telefono: Optional[str] = None
-    correo_contacto: Optional[str] = None
-    activa: Optional[bool] = None
+
+# ---- Repartidor ----
+class UbicacionIn(BaseModel):
+    latitud: float = Field(ge=-90, le=90)
+    longitud: float = Field(ge=-180, le=180)
+
+
+class RepartidorEstadoIn(BaseModel):
+    estado: EstadoRepartidor
+
+
+# ---- Inventario ----
+class InventarioIn(BaseModel):
+    id_sucursal: int
+    id_producto: int
+    stock_disponible: int = Field(ge=0)
+    fecha_vencimiento: Optional[date] = None
+
+
+class InventarioOut(BaseModel):
+    id_sucursal: int
+    id_producto: int
+    nombre_producto: str
+    stock_disponible: int
+    fecha_vencimiento: Optional[date] = None
