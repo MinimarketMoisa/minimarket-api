@@ -32,7 +32,7 @@ class Usuario(models.Model):
         return self.nombre_completo
 
 
-class municipio(models.Model):
+class Municipio(models.Model):
     id_municipio = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=100, unique=True)
 
@@ -42,3 +42,46 @@ class municipio(models.Model):
 
     def __str__(self):
         return self.nombre
+
+class Sucursal(models.Model):
+    id_sucursal = models.AutoField(primary_key=True)
+    id_municipio = models.ForeignKey(Municipio, models.DO_NOTHING, db_column='id_municipio')
+    nombre = models.CharField(max_length=150)
+    direccion = models.CharField(max_length=250)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'sucursales'
+
+    def __str__(self):
+        return self.nombre
+
+class Direccion(models.Model):
+    id_direccion = models.AutoField(primary_key=True)
+    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente')
+    id_municipio = models.ForeignKey(Municipio, models.DO_NOTHING, db_column='id_municipio')
+    detalle_direccion = models.CharField(max_length=250)
+    punto_referencia = models.CharField(max_length=250, blank=True, null=True)
+    class Meta:
+        managed = False
+        db_table = 'direcciones'
+
+    def __str__(self):
+        return f"{self.detalle_direccion}, {self.id_municipio.nombre}"
+
+class Categoria(models.Model):
+    id_categoria = models.AutoField(primary_key=True)
+    nombre = models.CharField(max_length=100)
+    descripcion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'categorias'
+
+    def __str__(self):
+        return self.nombre
+
