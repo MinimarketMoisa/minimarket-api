@@ -1,0 +1,57 @@
+{% extends 'portal_cliente/base.html' %}
+{% block content %}
+<h1 class="text-2xl font-bold text-slate-900 mb-6">Tu Carrito de Compras</h1>
+{% if items %}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 space-y-4">
+      {% for it in items %}
+        <div class="bg-white p-4 rounded-xl border flex items-center justify-between">
+          <div>
+            <h3 class="font-bold text-slate-800">{{ it.producto.nombre }}</h3>
+            <p class="text-xs text-slate-500">${{ it.producto.precio_base }} c/u</p>
+          </div>
+          <div class="flex items-center gap-4">
+            <form method="POST" action="{% url 'actualizar_carrito' %}" class="flex items-center border rounded-lg overflow-hidden">
+              {% csrf_token %}
+              <input type="hidden" name="id_producto" value="{{ it.producto.id_producto }}">
+              <button name="accion" value="menos" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 font-bold">-</button>
+              <span class="px-3 py-1 text-sm font-semibold">{{ it.cantidad }}</span>
+              <button name="accion" value="mas" class="px-3 py-1 bg-slate-100 hover:bg-slate-200 font-bold">+</button>
+            </form>
+            <span class="font-bold text-slate-800 w-16 text-right">${{ it.subtotal }}</span>
+            <form method="POST" action="{% url 'actualizar_carrito' %}">
+              {% csrf_token %}
+              <input type="hidden" name="id_producto" value="{{ it.producto.id_producto }}">
+              <button name="accion" value="borrar" class="text-red-500 hover:text-red-700 text-sm font-medium">✕</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <div class="bg-white p-6 rounded-xl border h-fit space-y-4">
+      <h2 class="font-bold text-slate-800 text-lg border-b pb-2">Resumen de Compra</h2>
+      <div class="flex justify-between text-sm text-slate-600">
+        <span>Subtotal productos</span>
+        <span>${{ subtotal }}</span>
+      </div>
+      <div class="flex justify-between text-sm text-slate-600">
+        <span>Envío estimado (Domicilio)</span>
+        <span>${{ costo_envio }}</span>
+      </div>
+      <div class="flex justify-between font-black text-lg text-blue-900 border-t pt-2">
+        <span>Total estimado</span>
+        <span>${{ total }}</span>
+      </div>
+      <a href="{% url 'checkout' %}" class="block text-center bg-blue-700 hover:bg-blue-800 text-white font-medium py-2.5 rounded-xl transition">
+        Proceder al Checkout
+      </a>
+    </div>
+  </div>
+{% else %}
+  <div class="text-center py-16 bg-white rounded-xl border">
+    <p class="text-slate-500 mb-4">No tienes productos en el carrito.</p>
+    <a href="{% url 'catalogo' %}" class="bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-medium">Explorar Tienda</a>
+  </div>
+{% endif %}
+{% endblock %}
