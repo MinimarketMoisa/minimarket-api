@@ -1,14 +1,13 @@
 from django.db import models
 
-# Create your models here.
+
 class Rol(models.Model):
     id_rol = models.AutoField(primary_key=True)
     nombre = models.CharField(max_length=50, unique=True)
-    descripcion = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False
-        db_table = 'roles'
+        db_table = 'rol'
 
     def __str__(self):
         return self.nombre
@@ -22,11 +21,13 @@ class Usuario(models.Model):
     password = models.CharField(max_length=254)
     telefono = models.CharField(max_length=20, blank=True, null=True)
     activo = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
     last_login = models.DateTimeField(blank=True, null=True)
 
-    class meta:
+    class Meta:
         managed = False
-        db_table = 'usuarios'
+        db_table = 'usuario'
 
     def __str__(self):
         return self.nombre_completo
@@ -38,10 +39,11 @@ class Municipio(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'municipios'
+        db_table = 'municipio'
 
     def __str__(self):
         return self.nombre
+
 
 class Sucursal(models.Model):
     id_sucursal = models.AutoField(primary_key=True)
@@ -55,23 +57,26 @@ class Sucursal(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'sucursales'
+        db_table = 'sucursal'
 
     def __str__(self):
         return self.nombre
 
+
 class Direccion(models.Model):
     id_direccion = models.AutoField(primary_key=True)
-    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente')
+    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente', related_name='direcciones')
     id_municipio = models.ForeignKey(Municipio, models.DO_NOTHING, db_column='id_municipio')
     detalle_direccion = models.CharField(max_length=250)
     punto_referencia = models.CharField(max_length=250, blank=True, null=True)
+
     class Meta:
         managed = False
-        db_table = 'direcciones'
+        db_table = 'direccion'
 
     def __str__(self):
         return f"{self.detalle_direccion}, {self.id_municipio.nombre}"
+
 
 class Categoria(models.Model):
     id_categoria = models.AutoField(primary_key=True)
@@ -80,10 +85,11 @@ class Categoria(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'categorias'
+        db_table = 'categoria'
 
     def __str__(self):
         return self.nombre
+
 
 class Producto(models.Model):
     id_producto = models.AutoField(primary_key=True)
@@ -97,7 +103,7 @@ class Producto(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'productos'
+        db_table = 'producto'
 
     def __str__(self):
         return self.nombre
@@ -105,14 +111,13 @@ class Producto(models.Model):
 
 class Pedido(models.Model):
     id_pedido = models.AutoField(primary_key=True)
-    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente')
+    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente', related_name='pedidos_cliente')
     id_sucursal = models.ForeignKey(Sucursal, models.DO_NOTHING, db_column='id_sucursal')
-    id_repartidor = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_repartidor', blank=True, null=True)
-    id_direccion = models.ForeignKey(Direccion, models.DO_NOTHING, db_column='id_direccion')
+    id_repartidor = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_repartidor', blank=True, null=True, related_name='pedidos_repartidor')
+    id_direccion = models.ForeignKey(Direccion, models.DO_NOTHING, db_column='id_direccion', blank=True, null=True)
     canal = models.CharField(max_length=50)
     tipo_entrega = models.CharField(max_length=50)
     metodo_pago = models.CharField(max_length=50)
-    fecha_pedido = models.DateTimeField(auto_now_add=True)
     total = models.DecimalField(max_digits=10, decimal_places=2)
     estado = models.CharField(max_length=50, default='pendiente')
     estado_pago = models.CharField(max_length=20)
@@ -121,7 +126,8 @@ class Pedido(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'pedidos'
+        db_table = 'pedido'
+
 
 class DetallePedido(models.Model):
     id_detalle = models.AutoField(primary_key=True)
@@ -129,6 +135,7 @@ class DetallePedido(models.Model):
     id_producto = models.ForeignKey(Producto, models.DO_NOTHING, db_column='id_producto')
     cantidad = models.IntegerField()
     precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+    subtotal = models.DecimalField(max_digits=10, decimal_places=2)
 
     class Meta:
         managed = False
