@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Minimarket Digital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <header class="bg-blue-900 text-white shadow sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <a href="{% url 'catalogo' %}" class="text-xl font-bold tracking-tight">🛒 Minimarket</a>
+      <div class="flex items-center space-x-6 text-sm">
+        <a href="{% url 'catalogo' %}" class="hover:text-blue-200">Catálogo</a>
+        <a href="{% url 'mis_pedidos' %}" class="hover:text-blue-200">Mis Pedidos</a>
+        <a href="{% url 'perfil' %}" class="hover:text-blue-200">Mi Perfil</a>
+        <a href="{% url 'ver_carrito' %}" class="bg-blue-800 px-3 py-1.5 rounded-lg border border-blue-700 hover:bg-blue-700 flex items-center gap-2">
+          <span>Carrito</span>
+          <span class="bg-amber-400 text-blue-950 px-2 py-0.5 rounded-full font-bold text-xs">{{ cart_count|default:"0" }}</span>
+        </a>
+        <a href="{% url 'logout' %}" class="text-red-300 hover:text-red-100">Salir</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="p-3 mb-4 text-sm rounded-lg font-medium {% if msg.tags == 'error' %}bg-red-100 text-red-700{% elif msg.tags == 'warning' %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
