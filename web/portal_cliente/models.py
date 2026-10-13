@@ -85,3 +85,51 @@ class Categoria(models.Model):
     def __str__(self):
         return self.nombre
 
+class Producto(models.Model):
+    id_producto = models.AutoField(primary_key=True)
+    id_categoria = models.ForeignKey(Categoria, models.DO_NOTHING, db_column='id_categoria')
+    nombre = models.CharField(max_length=150)
+    descripcion = models.TextField(blank=True, null=True)
+    codigo_barras = models.CharField(max_length=50, blank=True, null=True)
+    precio_base = models.DecimalField(max_digits=10, decimal_places=2)
+    imagen_url = models.CharField(max_length=500, blank=True, null=True)
+    activo = models.BooleanField(default=True)
+
+    class Meta:
+        managed = False
+        db_table = 'productos'
+
+    def __str__(self):
+        return self.nombre
+
+
+class Pedido(models.Model):
+    id_pedido = models.AutoField(primary_key=True)
+    id_cliente = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_cliente')
+    id_sucursal = models.ForeignKey(Sucursal, models.DO_NOTHING, db_column='id_sucursal')
+    id_repartidor = models.ForeignKey(Usuario, models.DO_NOTHING, db_column='id_repartidor', blank=True, null=True)
+    id_direccion = models.ForeignKey(Direccion, models.DO_NOTHING, db_column='id_direccion')
+    canal = models.CharField(max_length=50)
+    tipo_entrega = models.CharField(max_length=50)
+    metodo_pago = models.CharField(max_length=50)
+    fecha_pedido = models.DateTimeField(auto_now_add=True)
+    total = models.DecimalField(max_digits=10, decimal_places=2)
+    estado = models.CharField(max_length=50, default='pendiente')
+    estado_pago = models.CharField(max_length=20)
+    costo_envio = models.DecimalField(max_digits=10, decimal_places=2)
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        managed = False
+        db_table = 'pedidos'
+
+class DetallePedido(models.Model):
+    id_detalle = models.AutoField(primary_key=True)
+    id_pedido = models.ForeignKey(Pedido, models.DO_NOTHING, db_column='id_pedido', related_name='detalles')
+    id_producto = models.ForeignKey(Producto, models.DO_NOTHING, db_column='id_producto')
+    cantidad = models.IntegerField()
+    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        managed = False
+        db_table = 'detalle_pedido'
