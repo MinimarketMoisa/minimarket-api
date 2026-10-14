@@ -1,70 +1,98 @@
 {% extends 'portal_cliente/base.html' %}
+
+{% block title %}Finalizar Compra - Minimarket{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold text-slate-900 mb-6">Finalizar Compra</h1>
-<form method="POST" class="bg-white p-6 rounded-xl border max-w-2xl mx-auto space-y-6">
-  {% csrf_token %}
-  <div>
-    <label class="block font-bold text-slate-700 mb-2">Método de Entrega</label>
-    <div class="grid grid-cols-2 gap-4">
-      <label class="border p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-blue-600">
-        <input type="radio" name="tipo_entrega" value="DOMICILIO" checked>
-        <div>
-          <p class="font-semibold text-sm">A Domicilio</p>
-          <p class="text-xs text-slate-500">Envío centralizado (+$1.50)</p>
-        </div>
-      </label>
-      <label class="border p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-blue-600">
-        <input type="radio" name="tipo_entrega" value="RETIRO">
-        <div>
-          <p class="font-semibold text-sm">Retiro en Sucursal</p>
-          <p class="text-xs text-slate-500">Sin costo de envío</p>
-        </div>
-      </label>
+<div class="checkout-card">
+  <h1 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 1.5rem;">Finalizar Compra</h1>
+
+  <form method="POST" action="{% url 'checkout' %}">
+    {% csrf_token %}
+
+    <div class="checkout-section">
+      <label class="checkout-section-title">1. Método de Entrega</label>
+      <div class="interactive-radio-grid">
+        <label class="interactive-radio-box selected" id="opt-domicilio">
+          <input type="radio" name="tipo_entrega" value="DOMICILIO" checked onchange="toggleEntrega('DOMICILIO')">
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem;">A Domicilio</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Envío a tu puerta (+ $1.50)</div>
+          </div>
+        </label>
+        <label class="interactive-radio-box" id="opt-retiro">
+          <input type="radio" name="tipo_entrega" value="RETIRO" onchange="toggleEntrega('RETIRO')">
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem;">Retiro en Sucursal</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Sin costo de envío adicional</div>
+          </div>
+        </label>
+      </div>
     </div>
-  </div>
 
-  <div id="campo-direccion">
-    <label class="block text-sm font-medium text-slate-700 mb-1">Dirección de Entrega</label>
-    <select name="id_direccion" class="w-full px-3 py-2 border rounded-lg text-sm">
-      {% for d in direcciones %}
-        <option value="{{ d.id_direccion }}">{{ d.detalle_direccion }} ({{ d.id_municipio.nombre }})</option>
-      {% empty %}
-        <option value="">No tienes direcciones. Agrega una en tu perfil.</option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <div id="campo-sucursal">
-    <label class="block text-sm font-medium text-slate-700 mb-1">Sucursal de Retiro</label>
-    <select name="id_sucursal" class="w-full px-3 py-2 border rounded-lg text-sm">
-      {% for s in sucursales %}
-        <option value="{{ s.id_sucursal }}">{{ s.nombre }} - {{ s.direccion }}</option>
-      {% endfor %}
-    </select>
-  </div>
-
-  <div>
-    <label class="block font-bold text-slate-700 mb-2">Método de Pago</label>
-    <div class="grid grid-cols-2 gap-4">
-      <label class="border p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-blue-600">
-        <input type="radio" name="metodo_pago" value="CONTRA_ENTREGA" checked>
-        <div>
-          <p class="font-semibold text-sm">Contra Entrega</p>
-          <p class="text-xs text-slate-500">Efectivo al recibir</p>
-        </div>
-      </label>
-      <label class="border p-4 rounded-xl flex items-center gap-3 cursor-pointer hover:border-blue-600">
-        <input type="radio" name="metodo_pago" value="TRANSFERENCIA">
-        <div>
-          <p class="font-semibold text-sm">Transferencia</p>
-          <p class="text-xs text-slate-500">Comprobante digital</p>
-        </div>
-      </label>
+    <div class="checkout-section" id="campo-direccion">
+      <label class="checkout-section-title">Dirección de Entrega</label>
+      <select name="id_direccion" class="form-select">
+        {% for d in direcciones %}
+          <option value="{{ d.id_direccion }}">{{ d.detalle_direccion }} ({{ d.id_municipio.nombre }})</option>
+        {% empty %}
+          <option value="">No tienes direcciones registradas en tu perfil.</option>
+        {% endfor %}
+      </select>
     </div>
-  </div>
 
-  <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition">
-    Confirmar y Pagar
-  </button>
-</form>
+    <div class="checkout-section" id="campo-sucursal" style="display: none;">
+      <label class="checkout-section-title">Sucursal para Retiro</label>
+      <select name="id_sucursal" class="form-select">
+        {% for s in sucursales %}
+          <option value="{{ s.id_sucursal }}">{{ s.nombre }} — {{ s.direccion }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="checkout-section">
+      <label class="checkout-section-title">2. Método de Pago</label>
+      <div class="interactive-radio-grid">
+        <label class="interactive-radio-box selected">
+          <input type="radio" name="metodo_pago" value="CONTRA_ENTREGA" checked>
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem;">Contra Entrega</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Efectivo al recibir</div>
+          </div>
+        </label>
+        <label class="interactive-radio-box">
+          <input type="radio" name="metodo_pago" value="TRANSFERENCIA">
+          <div>
+            <div style="font-weight: 700; font-size: 0.9rem;">Transferencia Bancaria</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Comprobante digital</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-success btn-block" style="padding: 0.9rem; font-size: 1rem;">
+      Confirmar y Procesar Orden
+    </button>
+  </form>
+</div>
+
+<script>
+  function toggleEntrega(tipo) {
+    const dir = document.getElementById('campo-direccion');
+    const suc = document.getElementById('campo-sucursal');
+    const boxDom = document.getElementById('opt-domicilio');
+    const boxRet = document.getElementById('opt-retiro');
+
+    if (tipo === 'DOMICILIO') {
+      dir.style.display = 'block';
+      suc.style.display = 'none';
+      boxDom.classList.add('selected');
+      boxRet.classList.remove('selected');
+    } else {
+      dir.style.display = 'none';
+      suc.style.display = 'block';
+      boxRet.classList.add('selected');
+      boxDom.classList.remove('selected');
+    }
+  }
+</script>
 {% endblock %}
