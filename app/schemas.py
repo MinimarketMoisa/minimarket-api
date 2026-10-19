@@ -40,6 +40,12 @@ class UsuarioOut(BaseModel):
     email: str
     telefono: Optional[str] = None
     rol: str
+    email_verificado: bool = False
+
+
+class RegistroOut(UsuarioOut):
+    mensaje: str = "Registro exitoso. Te hemos enviado un correo a tu Gmail con el enlace de verificación."
+
 
 
 # ---- Catalogo ----
@@ -175,3 +181,38 @@ class InventarioOut(BaseModel):
     nombre_producto: str
     stock_disponible: int
     fecha_vencimiento: Optional[date] = None
+
+class SolicitarCambioEmailIn(BaseModel):
+    nuevo_email: EmailStr
+
+class ConfirmarCambioEmailIn(BaseModel):
+    token: str
+
+class VerificarEmailIn(BaseModel):
+    token: str
+
+class ReenviarVerificacionIn(BaseModel):
+    email: EmailStr
+
+class MensajeRespuesta(BaseModel):
+    mensaje: str
+    verificado: Optional[bool] = None
+
+
+
+class CategoriaIn(BaseModel):
+    nombre: str = Field(..., min_length=2, max_length=100)
+    descripcion: Optional[str] = None
+
+class CategoriaUpdate(BaseModel):
+    nombre: Optional[str] = Field(None, min_length=2, max_length=100)
+    descripcion: Optional[str] = None
+
+class ProductoUpdate(BaseModel):
+    id_categoria: Optional[int] = None
+    codigo_barras: Optional[str] = None
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    precio: Optional[Decimal] = Field(None, gt=0)
+    imagen_url: Optional[str] = None
+    activo: Optional[bool] = None

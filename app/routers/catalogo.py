@@ -81,3 +81,93 @@ def crear_producto(data: ProductoIn, _=Depends(require_roles("ADMIN")), db: Sess
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "El código de barras ya existe")
     return producto
+
+
+from ..schemas import (
+    CategoriaIn,
+    CategoriaOut,
+    CategoriaUpdate,
+    DisponibilidadOut,
+    MunicipioOut,
+    ProductoIn,
+    ProductoOut,
+    ProductoUpdate,
+    SucursalOut,
+)
+
+# --- GESTIÓN DE CATEGORÍAS (ADMIN) ---
+
+@router.post("/categorias", response_model=CategoriaOut, status_code=status.HTTP_201_CREATED)
+def crear_categoria(
+    data: CategoriaIn,
+    _=Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    """Permite al ADMIN crear una nueva categoría."""
+    categoria = m.Categoria(**data.model_dump())
+    db.add(categoria)
+    try:
+        db.commit()
+        db.refresh(categoria)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una categoría con ese nombre")
+    return categoria
+
+
+@router.patch("/categorias/{id_categoria}", response_model=CategoriaOut)
+def editar_categoria(
+    id_categoria: int,
+    data: CategoriaUpdate,
+    _=Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    """Permite al ADMIN editar una categoría existente."""
+    categoria = db.get(m.Categoria, id_categoria)
+    if categoria is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Categoría no encontrada")
+    
+    cambios = data.model_dump(exclude_unset=True)
+    for campo, valor in cambios.items():
+        setattr(categoria, campo, valor)
+
+    try:
+        db.commit()
+        db.refresh(categoria)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "Ya existe una categoría con ese nombre")
+    return categoria
+
+
+# --- GESTIÓN DE PRODUCTOS (EDITAR / DESACTIVAR) (ADMIN) ---
+
+@router.patch("/productos/{id_producto}", response_model=ProductoOut)
+def editar_producto(
+    id_producto: int,
+    data: ProductoUpdate,
+    _=Depends(require_roles("ADMIN")),
+    db: Session = Depends(get_db),
+):
+    """Permite al ADMIN editar precio, categoría, nombre o desactivar un producto."""
+    producto = db.get(m.Producto, id_producto)
+    if producto is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado")
+
+    cambios = data.model_dump(exclude_unset=True)
+
+    if "id_categoria" in cambios and cambios["id_categoria"] is not None:
+        if db.get(m.Categoria, cambios["id_categoria"]) is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "La categoría especificada no existe")
+
+    for campo, valor in cambios.items():
+        setattr(producto, campo, valor)
+
+    try:
+        db.commit()
+        db.refresh(producto)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, "El código de barras ya pertenece a otro producto")
+
+    return producto

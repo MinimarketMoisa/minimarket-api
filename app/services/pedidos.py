@@ -6,9 +6,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import models as m
-from .config import settings
-from .schemas import DetalleOut, PedidoIn, PedidoOut
+from .. import models as m
+from ..config import settings
+from ..schemas import DetalleOut, PedidoIn, PedidoOut
 
 ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARADO", "EN_RUTA")
 
@@ -38,15 +38,15 @@ def puede_gestionar_sucursal(db: Session, usuario: m.Usuario, id_sucursal: int) 
         return emp is not None and emp.id_sucursal == id_sucursal
     return False
 
-
 def puede_ver_pedido(db: Session, usuario: m.Usuario, pedido: m.Pedido) -> bool:
     rol = usuario.rol.nombre
+    if rol == "ADMIN":
+        return True
     if rol == "CLIENTE":
         return pedido.id_cliente == usuario.id_usuario
     if rol == "REPARTIDOR":
         return pedido.id_repartidor == usuario.id_usuario
     return puede_gestionar_sucursal(db, usuario, pedido.id_sucursal)
-
 
 def pedido_a_out(p: m.Pedido) -> PedidoOut:
     detalles = [
@@ -224,28 +224,34 @@ def restaurar_stock(db: Session, pedido: m.Pedido) -> None:
 
 def cambiar_estado(db: Session, pedido: m.Pedido, nuevo: str, usuario: m.Usuario) -> m.Pedido:
     rol = usuario.rol.nombre
-    if nuevo not in TRANSICIONES.get(pedido.estado, set()):
+    
+    # Si es ADMIN, permite cambiar a cualquier estado directo
+    if rol != "ADMIN" and nuevo not in TRANSICIONES.get(pedido.estado, set()):
         raise HTTPException(
             status.HTTP_409_CONFLICT, f"No se puede pasar de {pedido.estado} a {nuevo}"
         )
+        
     gestiona = puede_gestionar_sucursal(db, usuario, pedido.id_sucursal)
     es_su_repartidor = rol == "REPARTIDOR" and pedido.id_repartidor == usuario.id_usuario
     domicilio = pedido.tipo_entrega == "DOMICILIO"
 
-    if nuevo == "PREPARADO":
+    if rol == "ADMIN":
+        permitido = True
+    elif nuevo == "PREPARADO":
         permitido = gestiona
     elif nuevo == "EN_RUTA":
         if not domicilio or pedido.id_repartidor is None:
             raise HTTPException(status.HTTP_409_CONFLICT, "Solo un pedido a domicilio con repartidor puede ir en ruta")
-        permitido = rol == "ADMIN" or es_su_repartidor
+        permitido = es_su_repartidor
     elif nuevo == "ENTREGADO":
         if domicilio and pedido.estado != "EN_RUTA":
             raise HTTPException(status.HTTP_409_CONFLICT, "Un pedido a domicilio debe pasar por EN_RUTA")
-        permitido = (rol == "ADMIN" or es_su_repartidor) if domicilio else gestiona
+        permitido = es_su_repartidor if domicilio else gestiona
     else:  # CANCELADO
         permitido = gestiona or (
             rol == "CLIENTE" and pedido.id_cliente == usuario.id_usuario and pedido.estado == "PENDIENTE"
         )
+
     if not permitido:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "No tienes permiso para este cambio de estado")
 

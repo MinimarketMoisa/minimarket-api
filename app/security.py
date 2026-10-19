@@ -50,3 +50,46 @@ def decode_token(token: str) -> Optional[dict]:
         return jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         return None
+    
+def create_email_change_token(id_usuario: int, nuevo_email: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(minutes=15)
+    payload = {
+        "sub": str(id_usuario),
+        "nuevo_email": nuevo_email,
+        "type": "email_change",
+        "exp": exp,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+def decode_email_change_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        if payload.get("type") != "email_change":
+            return None
+        return payload
+    except jwt.PyJWTError:
+        return None
+
+
+def create_email_verification_token(id_usuario: int, email: str) -> str:
+    exp = datetime.now(timezone.utc) + timedelta(hours=settings.email_verification_token_expire_hours)
+    payload = {
+        "sub": str(id_usuario),
+        "email": email.lower(),
+        "type": "email_verification",
+        "exp": exp,
+    }
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
+
+
+def decode_email_verification_token(token: str) -> Optional[dict]:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        if payload.get("type") != "email_verification":
+            return None
+        return payload
+    except jwt.PyJWTError:
+        return None
+
+
+

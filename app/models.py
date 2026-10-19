@@ -46,6 +46,7 @@ class Usuario(Base):
     password: Mapped[str] = mapped_column(String(128))
     telefono: Mapped[Optional[str]] = mapped_column(String(20))
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    email_verificado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     # Columnas que Django necesita para usar esta tabla como modelo de usuario / Admin
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))

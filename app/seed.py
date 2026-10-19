@@ -64,7 +64,7 @@ def run() -> None:
 
         def usuario(nombre, email, rol, **extra):
             u = m.Usuario(id_rol=roles[rol], nombre_completo=nombre, email=email,
-                          password=hash_password(CLAVE), **extra)
+                          password=hash_password(CLAVE), email_verificado=True, **extra)
             db.add(u)
             db.flush()
             return u
