@@ -10,7 +10,15 @@ from .. import models as m
 from .. import services
 from ..database import get_db
 from ..deps import require_roles
-from ..schemas import PedidoOut, RechazoIn, RechazoOut, RepartidorEstadoIn, UbicacionIn
+from ..schemas import (
+    PedidoOut,
+    PedidoParaRepartidorOut,
+    RechazoIn,
+    RechazoOut,
+    RechazoRepartidorOut,
+    RepartidorEstadoIn,
+    UbicacionIn,
+)
 
 router = APIRouter(prefix="/repartidor", tags=["Repartidor"])
 
@@ -22,15 +30,44 @@ def _perfil(db: Session, usuario: m.Usuario) -> m.PerfilRepartidor:
     return perfil
 
 
-@router.get("/mis-entregas", response_model=list[PedidoOut])
+@router.get("/pedido-entrante", response_model=Optional[PedidoParaRepartidorOut])
+def pedido_entrante(
+    usuario: m.Usuario = Depends(require_roles("REPARTIDOR")),
+    db: Session = Depends(get_db),
+):
+    """
+    (Para Repartidor / App Móvil) Consulta si hay un nuevo pedido que acaba de caer
+    y está esperando que este repartidor lo acepte o lo rechace.
+    Incluye todos los datos de contacto y entrega del cliente (nombre, teléfono, dirección,
+    referencia, sucursal de recogida y total) pero OMITIENDO su id_cliente.
+    Si no hay pedidos pendientes de responder, devuelve null.
+    """
+    pedido = db.scalar(
+        select(m.Pedido)
+        .where(
+            m.Pedido.id_repartidor == usuario.id_usuario,
+            m.Pedido.estado_repartidor == "ASIGNADO",
+            m.Pedido.estado.in_(services.ESTADOS_ACTIVOS),
+        )
+        .order_by(m.Pedido.fecha_creacion.desc())
+    )
+    if pedido is None:
+        return None
+    return services.pedido_para_repartidor_out(pedido, db)
+
+
+@router.get("/mis-entregas", response_model=list[PedidoParaRepartidorOut])
 def mis_entregas(
     estado_repartidor: Optional[str] = Query(
-        None, description="Filtrar por 'ASIGNADO' (pendiente de aceptar) o 'ACEPTADO'"
+        None, description="Filtrar por 'ASIGNADO' (pendiente de aceptar) o 'ACEPTADO' (en curso)"
     ),
     usuario: m.Usuario = Depends(require_roles("REPARTIDOR")),
     db: Session = Depends(get_db),
 ):
-    """Lista los pedidos asignados al repartidor. Permite filtrar por estado de asignación."""
+    """
+    Lista los pedidos asignados al repartidor con toda la información de entrega
+    y contacto del cliente (sin su id_cliente).
+    """
     query = (
         select(m.Pedido)
         .where(
@@ -43,10 +80,23 @@ def mis_entregas(
         query = query.where(m.Pedido.estado_repartidor == estado_repartidor.upper())
 
     pedidos = db.scalars(query).all()
-    return [services.pedido_a_out(p) for p in pedidos]
+    return [services.pedido_para_repartidor_out(p, db) for p in pedidos]
 
 
-@router.post("/pedidos/{id_pedido}/aceptar", response_model=PedidoOut)
+@router.get("/pedidos/{id_pedido}", response_model=PedidoParaRepartidorOut)
+def ver_pedido_repartidor(
+    id_pedido: int,
+    usuario: m.Usuario = Depends(require_roles("REPARTIDOR")),
+    db: Session = Depends(get_db),
+):
+    """Consulta la tarjeta completa de un pedido asignado a este repartidor."""
+    pedido = db.get(m.Pedido, id_pedido)
+    if pedido is None or pedido.id_repartidor != usuario.id_usuario:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado o no asignado a ti")
+    return services.pedido_para_repartidor_out(pedido, db)
+
+
+@router.post("/pedidos/{id_pedido}/aceptar", response_model=PedidoParaRepartidorOut)
 def aceptar_pedido(
     id_pedido: int,
     usuario: m.Usuario = Depends(require_roles("REPARTIDOR")),
@@ -54,17 +104,17 @@ def aceptar_pedido(
 ):
     """
     El repartidor acepta el pedido que la API le asignó.
-    Pasa su estado de repartidor a 'ACEPTADO' y confirma su disponibilidad.
+    Pasa su estado de repartidor a 'ACEPTADO' y devuelve la tarjeta completa para la ruta.
     """
     pedido = db.get(m.Pedido, id_pedido)
     if pedido is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
 
     pedido_aceptado = services.aceptar_pedido(db, pedido, usuario)
-    return services.pedido_a_out(pedido_aceptado)
+    return services.pedido_para_repartidor_out(pedido_aceptado, db)
 
 
-@router.post("/pedidos/{id_pedido}/rechazar", response_model=RechazoOut)
+@router.post("/pedidos/{id_pedido}/rechazar", response_model=RechazoRepartidorOut)
 def rechazar_pedido(
     id_pedido: int,
     data: Optional[RechazoIn] = None,
@@ -89,12 +139,13 @@ def rechazar_pedido(
         else "Pedido rechazado exitosamente. En espera de un repartidor libre en la zona."
     )
 
-    return RechazoOut(
+    return RechazoRepartidorOut(
         mensaje=msg,
         reasignado=reasignado,
         nuevo_repartidor_id=pedido_actualizado.id_repartidor,
-        pedido=services.pedido_a_out(pedido_actualizado),
+        pedido=None,
     )
+
 
 
 @router.patch("/ubicacion", status_code=status.HTTP_204_NO_CONTENT)

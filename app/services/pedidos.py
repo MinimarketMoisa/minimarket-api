@@ -8,7 +8,15 @@ from sqlalchemy.orm import Session
 
 from .. import models as m
 from ..config import settings
-from ..schemas import DetalleOut, PedidoIn, PedidoOut
+from ..schemas import (
+    ClienteParaRepartidorOut,
+    DestinoEntregaOut,
+    DetalleOut,
+    PedidoIn,
+    PedidoOut,
+    PedidoParaRepartidorOut,
+    SucursalEntregaOut,
+)
 
 ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARADO", "EN_RUTA")
 
@@ -59,14 +67,113 @@ def pedido_a_out(p: m.Pedido) -> PedidoOut:
         )
         for d in p.detalles
     ]
+
+    nombre_repartidor = None
+    telefono_repartidor = None
+    if p.id_repartidor:
+        if hasattr(p, "repartidor_perfil") and p.repartidor_perfil and p.repartidor_perfil.usuario:
+            nombre_repartidor = p.repartidor_perfil.usuario.nombre_completo
+            telefono_repartidor = p.repartidor_perfil.usuario.telefono
+        else:
+            sess = Session.object_session(p)
+            if sess:
+                rep = sess.get(m.Usuario, p.id_repartidor)
+                if rep:
+                    nombre_repartidor = rep.nombre_completo
+                    telefono_repartidor = rep.telefono
+
     return PedidoOut(
-        id_pedido=p.id_pedido, id_cliente=p.id_cliente, id_sucursal=p.id_sucursal,
-        id_repartidor=p.id_repartidor, id_direccion=p.id_direccion, canal=p.canal,
-        tipo_entrega=p.tipo_entrega, metodo_pago=p.metodo_pago, estado=p.estado,
-        estado_pago=p.estado_pago, estado_repartidor=getattr(p, "estado_repartidor", None),
-        costo_envio=p.costo_envio, total=p.total,
-        fecha_creacion=p.fecha_creacion, detalles=detalles,
+        id_pedido=p.id_pedido,
+        id_cliente=p.id_cliente,
+        id_sucursal=p.id_sucursal,
+        id_repartidor=p.id_repartidor,
+        nombre_repartidor=nombre_repartidor,
+        telefono_repartidor=telefono_repartidor,
+        id_direccion=p.id_direccion,
+        canal=p.canal,
+        tipo_entrega=p.tipo_entrega,
+        metodo_pago=p.metodo_pago,
+        estado=p.estado,
+        estado_pago=p.estado_pago,
+        estado_repartidor=getattr(p, "estado_repartidor", None),
+        costo_envio=p.costo_envio,
+        total=p.total,
+        fecha_creacion=p.fecha_creacion,
+        detalles=detalles,
     )
+
+
+def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidorOut:
+    """
+    Formato especial para el repartidor:
+    - Incluye todos los datos del cliente (nombre y teléfono) pero SIN su id_cliente.
+    - Incluye la dirección completa con punto de referencia y municipio.
+    - Incluye los datos y ubicación de la sucursal de recogida.
+    """
+    detalles = [
+        DetalleOut(
+            id_producto=d.id_producto,
+            nombre_producto=d.producto.nombre,
+            cantidad=d.cantidad,
+            precio_unitario=d.precio_unitario,
+            subtotal=d.precio_unitario * d.cantidad,
+        )
+        for d in p.detalles
+    ]
+
+    # Datos del cliente (sin exponer id_cliente)
+    cliente_user = db.get(m.Usuario, p.id_cliente)
+    cliente_out = ClienteParaRepartidorOut(
+        nombre_completo=cliente_user.nombre_completo if cliente_user else "Cliente",
+        telefono=cliente_user.telefono if cliente_user else None,
+    )
+
+    # Datos de la sucursal de recogida
+    sucursal = db.get(m.Sucursal, p.id_sucursal)
+    sucursal_out = SucursalEntregaOut(
+        id_sucursal=sucursal.id_sucursal if sucursal else p.id_sucursal,
+        nombre=sucursal.nombre if sucursal else "Sucursal",
+        direccion=sucursal.direccion if sucursal else "",
+        telefono=sucursal.telefono if sucursal else None,
+        latitud=sucursal.latitud if sucursal else None,
+        longitud=sucursal.longitud if sucursal else None,
+    )
+
+    # Datos de destino (dirección del cliente)
+    destino_out = None
+    if p.id_direccion:
+        dir_obj = db.get(m.Direccion, p.id_direccion)
+        if dir_obj:
+            municipio_nom = None
+            if hasattr(dir_obj, "municipio") and dir_obj.municipio:
+                municipio_nom = dir_obj.municipio.nombre
+            elif dir_obj.id_municipio:
+                mun = db.get(m.Municipio, dir_obj.id_municipio)
+                municipio_nom = mun.nombre if mun else None
+
+            destino_out = DestinoEntregaOut(
+                id_direccion=dir_obj.id_direccion,
+                detalle_direccion=dir_obj.detalle_direccion,
+                punto_referencia=dir_obj.punto_referencia,
+                municipio=municipio_nom,
+            )
+
+    return PedidoParaRepartidorOut(
+        id_pedido=p.id_pedido,
+        estado=p.estado,
+        estado_repartidor=p.estado_repartidor,
+        canal=p.canal,
+        metodo_pago=p.metodo_pago,
+        estado_pago=p.estado_pago,
+        costo_envio=p.costo_envio,
+        total=p.total,
+        fecha_creacion=p.fecha_creacion,
+        cliente=cliente_out,
+        destino=destino_out,
+        sucursal=sucursal_out,
+        detalles=detalles,
+    )
+
 
 
 # ------------------------------------------------------------------ repartidores

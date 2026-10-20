@@ -159,6 +159,8 @@ class PedidoOut(BaseModel):
     id_cliente: int
     id_sucursal: int
     id_repartidor: Optional[int] = None
+    nombre_repartidor: Optional[str] = None
+    telefono_repartidor: Optional[str] = None
     id_direccion: Optional[int] = None
     canal: str
     tipo_entrega: str
@@ -199,6 +201,51 @@ class RechazoOut(BaseModel):
     reasignado: bool
     nuevo_repartidor_id: Optional[int] = None
     pedido: PedidoOut
+
+
+class ClienteParaRepartidorOut(BaseModel):
+    nombre_completo: str
+    telefono: Optional[str] = None
+
+
+class DestinoEntregaOut(BaseModel):
+    id_direccion: Optional[int] = None
+    detalle_direccion: str
+    punto_referencia: Optional[str] = None
+    municipio: Optional[str] = None
+
+
+class SucursalEntregaOut(BaseModel):
+    id_sucursal: int
+    nombre: str
+    direccion: str
+    telefono: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
+
+
+class PedidoParaRepartidorOut(BaseModel):
+    id_pedido: int
+    estado: str
+    estado_repartidor: Optional[str] = None
+    canal: str
+    metodo_pago: str
+    estado_pago: str
+    costo_envio: Num
+    total: Num
+    fecha_creacion: Optional[datetime] = None
+    cliente: ClienteParaRepartidorOut
+    destino: Optional[DestinoEntregaOut] = None
+    sucursal: SucursalEntregaOut
+    detalles: list[DetalleOut]
+
+
+class RechazoRepartidorOut(BaseModel):
+    mensaje: str
+    reasignado: bool
+    nuevo_repartidor_id: Optional[int] = None
+    pedido: Optional[PedidoParaRepartidorOut] = None
+
 
 
 

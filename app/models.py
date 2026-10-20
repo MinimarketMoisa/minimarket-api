@@ -73,6 +73,8 @@ class Direccion(Base):
     detalle_direccion: Mapped[str] = mapped_column(String(300))
     punto_referencia: Mapped[Optional[str]] = mapped_column(String(300))
 
+    municipio: Mapped["Municipio"] = relationship()
+
     __table_args__ = (UniqueConstraint("id_direccion", "id_cliente", name="uq_direccion_cliente"),)
 
 
@@ -116,6 +118,8 @@ class PerfilRepartidor(Base):
     latitud_actual: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6))
     longitud_actual: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6))
     ultima_actualizacion: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+
+    usuario: Mapped["Usuario"] = relationship()
 
     __table_args__ = (
         CheckConstraint("estado_operativo IN ('LIBRE', 'PENDIENTE')", name="ck_repartidor_estado"),
@@ -180,6 +184,9 @@ class Pedido(Base):
     detalles: Mapped[list["DetallePedido"]] = relationship(
         back_populates="pedido", cascade="all, delete-orphan", passive_deletes=True
     )
+    cliente: Mapped["Usuario"] = relationship(foreign_keys=[id_cliente])
+    sucursal: Mapped["Sucursal"] = relationship(foreign_keys=[id_sucursal])
+    repartidor_perfil: Mapped[Optional["PerfilRepartidor"]] = relationship(foreign_keys=[id_repartidor])
 
     __table_args__ = (
         # La direccion debe ser del mismo cliente que hizo el pedido
