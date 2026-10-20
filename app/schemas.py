@@ -165,6 +165,7 @@ class PedidoOut(BaseModel):
     metodo_pago: str
     estado: str
     estado_pago: str
+    estado_repartidor: Optional[str] = None
     costo_envio: Num
     total: Num
     fecha_creacion: Optional[datetime] = None
@@ -187,6 +188,18 @@ class UbicacionIn(BaseModel):
 
 class RepartidorEstadoIn(BaseModel):
     estado: EstadoRepartidor
+
+
+class RechazoIn(BaseModel):
+    motivo: Optional[str] = Field(None, max_length=200)
+
+
+class RechazoOut(BaseModel):
+    mensaje: str
+    reasignado: bool
+    nuevo_repartidor_id: Optional[int] = None
+    pedido: PedidoOut
+
 
 
 # ---- Inventario ----

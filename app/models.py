@@ -170,6 +170,7 @@ class Pedido(Base):
     canal: Mapped[str] = mapped_column(String(10))
     fecha_creacion: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     estado: Mapped[str] = mapped_column(String(20), default="PENDIENTE", server_default=text("'PENDIENTE'"))
+    estado_repartidor: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     tipo_entrega: Mapped[str] = mapped_column(String(20))
     metodo_pago: Mapped[str] = mapped_column(String(20))
     estado_pago: Mapped[str] = mapped_column(String(20), default="PENDIENTE", server_default=text("'PENDIENTE'"))
@@ -229,3 +230,20 @@ class DetallePedido(Base):
         UniqueConstraint("id_pedido", "id_producto", name="uq_detalle_pedido_producto"),
         Index("ix_detalle_producto", "id_producto"),
     )
+
+
+class RechazoPedido(Base):
+    __tablename__ = "rechazo_pedido"
+    id_rechazo: Mapped[int] = _pk()
+    id_pedido: Mapped[int] = _fk("pedido.id_pedido", ondelete="CASCADE")
+    id_repartidor: Mapped[int] = _fk("perfil_repartidor.id_repartidor", ondelete="CASCADE")
+    fecha: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    motivo: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
+    pedido: Mapped["Pedido"] = relationship()
+    repartidor: Mapped["PerfilRepartidor"] = relationship()
+
+    __table_args__ = (
+        Index("ix_rechazo_pedido_repartidor", "id_pedido", "id_repartidor"),
+    )
+
