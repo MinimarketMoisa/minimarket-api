@@ -1,7 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import auth, catalogo, direcciones, inventario, pedidos, repartidor
+from .routers import (
+    auth,
+    catalogo,
+    clientes,
+    direcciones,
+    inventario,
+    pedidos,
+    repartidor,
+)
 
 app = FastAPI(
     title="Minimarket API",
@@ -12,8 +20,15 @@ app = FastAPI(
 # En desarrollo se permite cualquier origen. En producción, lista aquí solo tus dominios.
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-for router in (auth.router, catalogo.router, direcciones.router, pedidos.router,
-               repartidor.router, inventario.router):
+for router in (
+    auth.router,
+    catalogo.router,
+    clientes.router,
+    direcciones.router,
+    pedidos.router,
+    repartidor.router,
+    inventario.router,
+):
     app.include_router(router)
 
 

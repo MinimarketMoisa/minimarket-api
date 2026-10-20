@@ -45,6 +45,7 @@ def usuario_out(u: m.Usuario) -> UsuarioOut:
         email=u.email,
         telefono=u.telefono,
         rol=u.rol.nombre,
+        activo=u.activo,
         email_verificado=u.email_verificado,
     )
 

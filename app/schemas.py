@@ -40,11 +40,33 @@ class UsuarioOut(BaseModel):
     email: str
     telefono: Optional[str] = None
     rol: str
+    activo: bool = True
     email_verificado: bool = False
 
 
 class RegistroOut(UsuarioOut):
     mensaje: str = "Registro exitoso. Te hemos enviado un correo a tu Gmail con el enlace de verificación."
+
+
+class ClienteAdminOut(BaseModel):
+    id_usuario: int
+    nombre_completo: str
+    email: str
+    telefono: Optional[str] = None
+    rol: str
+    activo: bool
+    email_verificado: bool
+    last_login: Optional[datetime] = None
+
+
+class ClienteAdminUpdate(BaseModel):
+    nombre_completo: Optional[str] = Field(None, min_length=2, max_length=150)
+    email: Optional[EmailStr] = None
+    telefono: Optional[str] = Field(None, max_length=20)
+    activo: Optional[bool] = None
+    email_verificado: Optional[bool] = None
+    rol: Optional[str] = None
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
 
 
 
