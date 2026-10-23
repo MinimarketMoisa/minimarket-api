@@ -18,14 +18,15 @@ from .routers import (
 )
 
 is_prod = settings.entorno == "produccion"
+show_docs = not is_prod or settings.enable_docs
 
 app = FastAPI(
     title="Minimarket API",
     version="1.0.0",
     description="API del MVP de minimarkets: catálogo, pedidos, repartidores e inventario por sucursal.",
-    docs_url=None if is_prod else "/docs",
-    redoc_url=None if is_prod else "/redoc",
-    openapi_url=None if is_prod else "/openapi.json",
+    docs_url="/docs" if show_docs else None,
+    redoc_url="/redoc" if show_docs else None,
+    openapi_url="/openapi.json" if show_docs else None,
 )
 
 app.state.limiter = limiter

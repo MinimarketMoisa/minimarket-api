@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # URL base de la API (para generar enlaces de verificación en correos)
     api_base_url: str = "http://localhost:8000"
+    enable_docs: bool = True
 
     # Configuración de Correo SMTP (Gmail u otros)
     smtp_server: str = "smtp.gmail.com"
