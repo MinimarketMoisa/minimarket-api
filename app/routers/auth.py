@@ -352,6 +352,12 @@ def verificar_correo_post(
     return MensajeRespuesta(mensaje="Correo verificado exitosamente", verificado=True)
 
 
+def _en_cooldown(u: m.Usuario) -> bool:
+    if not u.ultimo_correo_en:
+        return False
+    return (datetime.now(timezone.utc) - u.ultimo_correo_en).total_seconds() < 60
+
+
 @router.post("/reenviar-verificacion", response_model=MensajeRespuesta)
 @limiter.limit("5/hour")
 def reenviar_verificacion(
@@ -361,30 +367,16 @@ def reenviar_verificacion(
     db: Session = Depends(get_db),
 ):
     """
-    Reenvía el correo de verificación con límite de frecuencia (cooldown) y protección contra enumeración.
+    Reenvía el correo de verificación protegido contra enumeración y con cooldown.
     """
     email = str(data.email).lower()
     usuario = db.scalar(select(m.Usuario).where(func.lower(m.Usuario.email) == email))
 
-    if usuario is None:
-        return MensajeRespuesta(
-            mensaje="Si el correo ingresado se encuentra registrado y pendiente de verificación, se enviará un nuevo enlace."
-        )
-
-    if usuario.email_verificado:
-        return MensajeRespuesta(
-            mensaje="Este correo electrónico ya ha sido verificado. Puedes iniciar sesión.",
-            verificado=True,
-        )
-
-    # Cooldown anti-spam (mínimo 60 segundos entre reenvíos)
-    if usuario.ultimo_correo_en:
-        segundos = (datetime.now(timezone.utc) - usuario.ultimo_correo_en).total_seconds()
-        if segundos < 60:
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                f"Por favor espera {int(60 - segundos)} segundos antes de solicitar otro correo.",
-            )
+    respuesta = MensajeRespuesta(
+        mensaje="Si el correo está registrado y pendiente de verificación, recibirás un nuevo enlace."
+    )
+    if usuario is None or usuario.email_verificado or not usuario.activo or _en_cooldown(usuario):
+        return respuesta
 
     token = create_email_verification_token(usuario.id_usuario, usuario.email)
     usuario.ultimo_correo_en = datetime.now(timezone.utc)
@@ -397,10 +389,7 @@ def reenviar_verificacion(
         token,
     )
 
-    return MensajeRespuesta(
-        mensaje="Se ha enviado un nuevo enlace de verificación a tu correo de Gmail.",
-        verificado=False,
-    )
+    return respuesta
 
 
 @router.post("/login", response_model=TokenOut)
@@ -411,39 +400,23 @@ def login(
     db: Session = Depends(get_db),
 ):
     """
-    Inicio de sesión protegido contra fuerza bruta con bloqueo temporal (15 min tras 5 intentos)
-    y mitigación de ataques de tiempo para usuarios inexistentes.
+    Inicio de sesión protegido contra fuerza bruta con tiempo constante y bloqueo tras 5 intentos.
     """
     ahora = datetime.now(timezone.utc)
     usuario = db.scalar(select(m.Usuario).where(func.lower(m.Usuario.email) == form.username.lower()))
 
-    # Protección contra fuerza bruta: verificar si la cuenta está bloqueada temporalmente
-    if usuario and usuario.bloqueado_hasta and usuario.bloqueado_hasta > ahora:
-        restantes = int((usuario.bloqueado_hasta - ahora).total_seconds() / 60) + 1
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            f"Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta nuevamente en {restantes} minutos.",
-        )
+    ok = verify_password(form.password[:128], usuario.password if usuario else DUMMY_HASH)
+    bloqueado = bool(usuario and usuario.bloqueado_hasta and usuario.bloqueado_hasta > ahora)
 
-    # Si el usuario no existe, ejecutamos verify_password con DUMMY_HASH para mantener tiempo constante
-    if usuario is None:
-        verify_password(form.password, DUMMY_HASH)
+    if usuario is None or bloqueado or not ok:
+        if usuario is not None and not bloqueado:
+            usuario.intentos_fallidos += 1
+            if usuario.intentos_fallidos >= 5:
+                usuario.bloqueado_hasta, usuario.intentos_fallidos = ahora + timedelta(minutes=15), 0
+            db.commit()
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
-            "Credenciales incorrectas",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Verificación de credenciales
-    if not verify_password(form.password, usuario.password):
-        usuario.intentos_fallidos += 1
-        if usuario.intentos_fallidos >= 5:
-            usuario.bloqueado_hasta = ahora + timedelta(minutes=15)
-            usuario.intentos_fallidos = 0
-        db.commit()
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
-            "Credenciales incorrectas",
+            "Credenciales incorrectas o cuenta bloqueada temporalmente.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -491,7 +464,7 @@ def solicitar_cambio_email(
     NUNCA devuelve el token en la respuesta.
     """
     if not verify_password(data.password, usuario.password):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Contraseña incorrecta")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Contraseña incorrecta")
 
     nuevo_email = str(data.nuevo_email).lower()
     if nuevo_email == usuario.email.lower():
@@ -516,7 +489,7 @@ def solicitar_cambio_email(
     if existe:
         raise HTTPException(status.HTTP_409_CONFLICT, "Ese correo ya está registrado por otro usuario")
 
-    token = create_email_change_token(usuario.id_usuario, nuevo_email)
+    token = create_email_change_token(usuario.id_usuario, usuario.email, nuevo_email)
     usuario.ultimo_correo_en = datetime.now(timezone.utc)
     db.commit()
 
@@ -545,9 +518,9 @@ def confirmar_cambio_email(
     id_usuario = int(payload["sub"])
     nuevo_email = str(payload["nuevo_email"]).lower()
 
-    usuario = db.get(m.Usuario, id_usuario)
-    if usuario is None or not usuario.activo:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado")
+    usuario = db.get(m.Usuario, id_usuario, with_for_update=True)
+    if usuario is None or not usuario.activo or usuario.email.lower() != payload.get("actual"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token inválido o expirado")
 
     existe = db.scalar(
         select(m.Usuario.id_usuario).where(
@@ -801,7 +774,7 @@ def restablecer_contrasena(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Token de restablecimiento inválido o expirado")
 
     id_usuario = int(payload["sub"])
-    usuario = db.get(m.Usuario, id_usuario)
+    usuario = db.get(m.Usuario, id_usuario, with_for_update=True)
     if usuario is None or not usuario.activo:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado o inactivo")
 

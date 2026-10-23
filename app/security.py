@@ -103,9 +103,13 @@ def decode_email_verification_token(token: str) -> Optional[dict]:
     return _leer(token, "email_verification")
 
 
-def create_email_change_token(id_usuario: int, nuevo_email: str) -> str:
+def create_email_change_token(id_usuario: int, email_actual: str, nuevo_email: str) -> str:
     return _firmar(
-        {"sub": str(id_usuario), "nuevo_email": nuevo_email.lower()},
+        {
+            "sub": str(id_usuario),
+            "actual": email_actual.lower(),
+            "nuevo_email": nuevo_email.lower(),
+        },
         "email_change",
         timedelta(minutes=15),
     )

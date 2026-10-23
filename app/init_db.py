@@ -16,6 +16,7 @@ def init() -> None:
         conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS bloqueado_hasta TIMESTAMPTZ NULL;"))
         conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS ultimo_correo_en TIMESTAMPTZ NULL;"))
         conn.execute(text("ALTER TABLE pedido ADD COLUMN IF NOT EXISTS estado_repartidor VARCHAR(20) DEFAULT NULL;"))
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_denuncia_abierta ON denuncia_repartidor (id_pedido) WHERE estado IN ('PENDIENTE', 'INVESTIGANDO');"))
     with SessionLocal() as db:
         existentes = set(db.scalars(select(models.Rol.nombre)))
         for nombre in ROLES:

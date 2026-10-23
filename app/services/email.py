@@ -2,6 +2,7 @@ import html
 import logging
 import smtplib
 import ssl
+from decimal import Decimal
 from email.message import EmailMessage
 
 from ..config import settings
@@ -273,36 +274,43 @@ def enviar_aviso_seguridad(destinatario: str, nombre_usuario: str, accion: str) 
     return _enviar_email(msg, destinatario)
 
 
-def enviar_factura_pedido(destinatario: str, nombre_usuario: str, pedido, db=None) -> bool:
-    """Envía un ticket / factura detallada con el desglose completo del pedido."""
+def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -> bool:
+    """Envía un ticket / factura detallada con el desglose completo del pedido a partir de un diccionario desacoplado."""
     nombre_seguro = html.escape(nombre_usuario)
-    ticket_num = f"#PED-{pedido.id_pedido:06d}"
-    fecha_str = pedido.fecha_creacion.strftime("%d/%m/%Y %H:%M") if pedido.fecha_creacion else "Hoy"
+    id_pedido = datos.get("id_pedido", 0)
+    ticket_num = f"#PED-{id_pedido:06d}"
+
+    fecha_val = datos.get("fecha")
+    fecha_str = fecha_val.strftime("%d/%m/%Y %H:%M") if hasattr(fecha_val, "strftime") else str(fecha_val or "Hoy")
+    metodo_pago = html.escape(str(datos.get("metodo_pago", "")))
+    estado_pago = html.escape(str(datos.get("estado_pago", "")))
+    tipo_entrega = html.escape(str(datos.get("tipo_entrega", "")))
+    envio = Decimal(str(datos.get("costo_envio") or "0.00"))
+    total_guardado = Decimal(str(datos.get("total") or "0.00"))
 
     # Construir filas de la tabla de productos
     filas_html = ""
     filas_texto = ""
-    subtotal_prod = 0.0
+    subtotal_prod = Decimal("0.00")
 
-    for d in pedido.detalles:
-        nom_prod = html.escape(d.producto.nombre if hasattr(d, "producto") and d.producto else f"Producto #{d.id_producto}")
-        cant = d.cantidad
-        p_unit = float(d.precio_unitario)
-        sub = cant * p_unit
+    for nom, cant, p_unit in datos.get("lineas", []):
+        nom_prod = html.escape(str(nom))
+        cantidad = int(cant)
+        precio_u = Decimal(str(p_unit))
+        sub = cantidad * precio_u
         subtotal_prod += sub
 
         filas_html += f"""
         <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 10px 8px; font-size: 14px; color: #1e293b;">{nom_prod}</td>
-            <td style="padding: 10px 8px; font-size: 14px; text-align: center; color: #475569;">{cant}</td>
-            <td style="padding: 10px 8px; font-size: 14px; text-align: right; color: #475569;">${p_unit:.2f}</td>
+            <td style="padding: 10px 8px; font-size: 14px; text-align: center; color: #475569;">{cantidad}</td>
+            <td style="padding: 10px 8px; font-size: 14px; text-align: right; color: #475569;">${precio_u:.2f}</td>
             <td style="padding: 10px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #0f172a;">${sub:.2f}</td>
         </tr>
         """
-        filas_texto += f"- {nom_prod} x{cant} @ ${p_unit:.2f} = ${sub:.2f}\n"
+        filas_texto += f"- {nom_prod} x{cantidad} @ ${precio_u:.2f} = ${sub:.2f}\n"
 
-    envio = float(pedido.costo_envio or 0)
-    total = float(pedido.total or (subtotal_prod + envio))
+    total = total_guardado if total_guardado > Decimal("0.00") else (subtotal_prod + envio)
 
     msg = EmailMessage()
     msg["Subject"] = f"Comprobante de Compra {ticket_num} - Minimarket"
@@ -314,7 +322,7 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, pedido, db=Non
         f"Gracias por tu compra en Minimarket.\n\n"
         f"Comprobante: {ticket_num}\n"
         f"Fecha: {fecha_str}\n"
-        f"Método de Pago: {pedido.metodo_pago} ({pedido.estado_pago})\n\n"
+        f"Método de Pago: {metodo_pago} ({estado_pago})\n\n"
         f"DETALLE DE PRODUCTOS:\n"
         f"{filas_texto}\n"
         f"Subtotal: ${subtotal_prod:.2f}\n"
@@ -349,11 +357,11 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, pedido, db=Non
                             </tr>
                             <tr>
                                 <td><strong>Cliente:</strong> {nombre_seguro}</td>
-                                <td style="text-align: right;"><strong>Pago:</strong> {pedido.metodo_pago}</td>
+                                <td style="text-align: right;"><strong>Pago:</strong> {metodo_pago}</td>
                             </tr>
                             <tr>
-                                <td><strong>Tipo:</strong> {pedido.tipo_entrega}</td>
-                                <td style="text-align: right;"><strong>Estado Pago:</strong> {pedido.estado_pago}</td>
+                                <td><strong>Tipo:</strong> {tipo_entrega}</td>
+                                <td style="text-align: right;"><strong>Estado Pago:</strong> {estado_pago}</td>
                             </tr>
                         </table>
 
@@ -401,5 +409,7 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, pedido, db=Non
     </body>
     </html>
     """
+    msg.add_alternative(html_content, subtype="html")
+    return _enviar_email(msg, destinatario)
     msg.add_alternative(html_content, subtype="html")
     return _enviar_email(msg, destinatario)

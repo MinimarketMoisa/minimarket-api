@@ -400,7 +400,7 @@ class ProductoUpdate(BaseModel):
 
 # ---- Denuncias ----
 class DenunciaIn(BaseModel):
-    motivo: str = Field(min_length=3, max_length=100)
+    motivo: str = Field(min_length=3, max_length=150)
     descripcion: Optional[str] = Field(None, max_length=1000)
 
 

@@ -124,13 +124,13 @@ def test_c2_solicitar_cambio_email_seguro():
 
     token = get_token("cliente@minimarket.test")
     
-    # 1. Sin contraseña o con contraseña incorrecta -> 401
+    # 1. Sin contraseña o con contraseña incorrecta -> 403 (para no invalidar la sesión en la app móvil)
     res = client.post(
         "/auth/solicitar-cambio-email",
         headers=auth_headers(token),
         json={"nuevo_email": "nuevo_cliente@test.com", "password": "password_incorrecta_123"},
     )
-    assert res.status_code == 401
+    assert res.status_code == 403
 
     # 2. Con contraseña correcta -> no debe retornar el token en la respuesta
     with SessionLocal() as db:
@@ -226,10 +226,15 @@ def test_a4_bloqueo_por_fuerza_bruta():
             res = client.post("/auth/login", data={"username": "cliente@minimarket.test", "password": "password_incorrecta"})
             assert res.status_code == 401, f"Intento {i+1} devolvio {res.status_code}: {res.text}"
 
-        # El 6to intento debe dar 429 Cuenta Bloqueada a nivel de cuenta
+        # El 6to intento (incluso con la clave correcta) debe dar 401 sin revelar existencia
         res = client.post("/auth/login", data={"username": "cliente@minimarket.test", "password": "Prueba12345"})
-        assert res.status_code == 429, f"6to intento devolvio {res.status_code}: {res.text}"
-        assert "Cuenta bloqueada temporalmente" in res.json().get("detail", "")
+        assert res.status_code == 401, f"6to intento devolvio {res.status_code}: {res.text}"
+        assert "Credenciales incorrectas o cuenta bloqueada temporalmente" in res.json().get("detail", "")
+
+        # Un usuario inexistente debe dar el mismo 401 y el mismo mensaje
+        res_no_existe = client.post("/auth/login", data={"username": "fantasma_inexistente@minimarket.test", "password": "CualquierPassword123"})
+        assert res_no_existe.status_code == 401
+        assert res_no_existe.json().get("detail") == res.json().get("detail")
     finally:
         app.state.limiter.enabled = True
         with SessionLocal() as db:
@@ -573,10 +578,10 @@ def test_factura_y_reportes_empresa():
     admin_token = get_token("admin@minimarket.test")
     cli_token = get_token("cliente@minimarket.test")
 
-    # 1. Endpoint de reenviar factura del pedido
+    # 1. Endpoint de reenviar factura del pedido (cliente propio)
     res_factura = client.post("/pedidos/1/enviar-factura", headers=auth_headers(cli_token))
     assert res_factura.status_code == 200
-    assert "enviada" in res_factura.json()["mensaje"]
+    assert "factura" in res_factura.json()["mensaje"].lower()
 
     # 2. Reporte individual de auditoría de pedido para empresa
     res_rep_ped = client.get("/reportes/pedidos/1", headers=auth_headers(admin_token))
@@ -601,6 +606,118 @@ def test_factura_y_reportes_empresa():
     assert "ventas_por_dia" in mensual_data
     assert "ventas_por_sucursal" in mensual_data
     assert "rendimiento_repartidores" in mensual_data
+
+
+# ---------------------------------------------------------------------------
+# Nuevos casos de auditoría solicitados
+# ---------------------------------------------------------------------------
+def test_empleado_sucursal_a_no_ve_pedido_sucursal_b():
+    with SessionLocal() as db:
+        u_emp = db.scalar(select(m.Usuario).where(m.Usuario.email == "empleado@minimarket.test"))
+        u_emp.password = security.hash_password("Prueba12345")
+        u_emp.activo = True
+        u_emp.email_verificado = True
+        emp = db.get(m.Empleado, u_emp.id_usuario)
+        if not emp:
+            db.add(m.Empleado(id_empleado=u_emp.id_usuario, id_sucursal=1, cargo="Cajero"))
+        else:
+            emp.id_sucursal = 1
+
+        pedido_suc2 = db.scalar(select(m.Pedido).where(m.Pedido.id_sucursal == 2))
+        if not pedido_suc2:
+            p = db.scalar(select(m.Pedido).order_by(m.Pedido.id_pedido.desc()))
+            p.id_sucursal = 2
+            id_pedido_suc2 = p.id_pedido
+        else:
+            id_pedido_suc2 = pedido_suc2.id_pedido
+        db.commit()
+
+    emp_token = get_token("empleado@minimarket.test")
+    res = client.get(f"/reportes/pedidos/{id_pedido_suc2}", headers=auth_headers(emp_token))
+    assert res.status_code == 404, f"Empleado de sucursal 1 pudo ver pedido de sucursal 2: {res.text}"
+
+
+def test_empleado_sin_sucursal_reporte_diario():
+    with SessionLocal() as db:
+        u = db.scalar(select(m.Usuario).where(m.Usuario.email == "srmochi77@gmail.com"))
+        if u:
+            u.password = security.hash_password("Prueba12345")
+            u.activo = True
+            u.email_verificado = True
+            emp = db.get(m.Empleado, u.id_usuario)
+            if emp:
+                db.delete(emp)
+            db.commit()
+
+    token_huerfano = get_token("srmochi77@gmail.com")
+    res = client.get("/reportes/diario", headers=auth_headers(token_huerfano))
+    assert res.status_code == 403, f"Empleado sin sucursal no devolvio 403: {res.status_code}"
+    assert "no tiene sucursal asignada" in res.json().get("detail", "")
+
+
+def test_repartidor_asignado_no_puede_enviar_factura():
+    with SessionLocal() as db:
+        p = db.get(m.Pedido, 1)
+        if p:
+            p.id_repartidor = 4
+        u_rep = db.scalar(select(m.Usuario).where(m.Usuario.email == "repartidor2@minimarket.test"))
+        if u_rep:
+            u_rep.password = security.hash_password("Prueba12345")
+            u_rep.activo = True
+            u_rep.email_verificado = True
+        db.commit()
+
+    token_rep = get_token("repartidor2@minimarket.test")
+    res = client.post("/pedidos/1/enviar-factura", headers=auth_headers(token_rep))
+    assert res.status_code == 404, f"Repartidor pudo llamar enviar-factura: {res.status_code}"
+
+
+def test_login_bloqueado_e_inexistente_mismo_401_y_mensaje():
+    with SessionLocal() as db:
+        u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+        from datetime import timedelta
+        u.bloqueado_hasta = datetime.now(timezone.utc) + timedelta(minutes=15)
+        db.commit()
+
+    try:
+        res_bloqueado = client.post("/auth/login", data={"username": "cliente@minimarket.test", "password": "CualquierPassword123"})
+        res_inexistente = client.post("/auth/login", data={"username": "correo_no_existente_jamasss@minimarket.test", "password": "CualquierPassword123"})
+
+        assert res_bloqueado.status_code == 401
+        assert res_inexistente.status_code == 401
+        assert res_bloqueado.json()["detail"] == res_inexistente.json()["detail"]
+        assert "Credenciales incorrectas o cuenta bloqueada temporalmente." in res_bloqueado.json()["detail"]
+    finally:
+        with SessionLocal() as db:
+            u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+            u.bloqueado_hasta = None
+            db.commit()
+
+
+def test_reusar_token_cambio_correo_devuelve_400():
+    with SessionLocal() as db:
+        u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+        id_u = u.id_usuario
+        email_actual = u.email
+
+    nuevo = "cliente_temporal_test@minimarket.test"
+    token_cambio = security.create_email_change_token(id_u, email_actual, nuevo)
+
+    # Primer uso -> 200 OK
+    res1 = client.post("/auth/confirmar-cambio-email", json={"token": token_cambio})
+    assert res1.status_code == 200, f"Primer uso del token falló: {res1.text}"
+
+    # Segundo uso del mismo token -> 400 Bad Request
+    res2 = client.post("/auth/confirmar-cambio-email", json={"token": token_cambio})
+    assert res2.status_code == 400, f"Token reusado no devolvió 400: {res2.status_code}"
+    assert "inválido o expirado" in res2.json().get("detail", "").lower()
+
+    # Restaurar correo original
+    with SessionLocal() as db:
+        u = db.get(m.Usuario, id_u)
+        u.email = "cliente@minimarket.test"
+        u.email_verificado = True
+        db.commit()
 
 
 if __name__ == "__main__":

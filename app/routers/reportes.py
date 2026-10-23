@@ -1,13 +1,15 @@
 import calendar
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import extract, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 
 from .. import models as m
+from .. import services
 from ..database import get_db
 from ..deps import require_roles
 from ..schemas import (
@@ -19,6 +21,8 @@ from ..schemas import (
     VentaPorDiaOut,
 )
 
+TZ = ZoneInfo("America/El_Salvador")
+
 router = APIRouter(
     prefix="/reportes",
     tags=["Reportes y Estadísticas (Empresa)"],
@@ -26,17 +30,28 @@ router = APIRouter(
 )
 
 
+def _sucursal_permitida(db: Session, usuario: m.Usuario, id_sucursal: Optional[int]) -> Optional[int]:
+    """Helper que garantiza que un empleado solo pueda ver su propia sucursal y bloquea si no tiene sucursal."""
+    if usuario.rol.nombre == "EMPLEADO":
+        emp = db.get(m.Empleado, usuario.id_usuario)
+        if emp is None:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "El empleado no tiene sucursal asignada")
+        return emp.id_sucursal
+    return id_sucursal
+
+
 @router.get("/pedidos/{id_pedido}", response_model=dict)
 def reporte_pedido_empresa(
     id_pedido: int,
+    usuario: m.Usuario = Depends(require_roles("ADMIN", "EMPLEADO")),
     db: Session = Depends(get_db),
 ):
     """
     (Empresa / Admin / Empleado) Genera el reporte de auditoría operacional y financiero
-    de un pedido específico: datos del cliente, tiempos, repartidor, sucursal, productos y totales.
+    de un pedido específico. Valida que el empleado pertenezca a la sucursal del pedido.
     """
     pedido = db.get(m.Pedido, id_pedido)
-    if pedido is None:
+    if pedido is None or not services.puede_gestionar_sucursal(db, usuario, pedido.id_sucursal):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
 
     cliente = db.get(m.Usuario, pedido.id_cliente)
@@ -108,21 +123,21 @@ def reporte_diario(
 ):
     """
     (Empresa / Admin) Genera el reporte diario consolidado de ventas, pedidos por estado,
-    ingresos por método de pago y productos más vendidos.
+    ingresos por método de pago y productos más vendidos en horario local (UTC-6).
     """
-    dia_consulta = fecha or datetime.now(timezone.utc).date()
-    inicio_dia = datetime.combine(dia_consulta, time.min).replace(tzinfo=timezone.utc)
-    fin_dia = datetime.combine(dia_consulta, time.max).replace(tzinfo=timezone.utc)
+    id_sucursal = _sucursal_permitida(db, usuario, id_sucursal)
 
-    # Si es empleado, filtrar automáticamente por su sucursal
-    if usuario.rol.nombre == "EMPLEADO":
-        emp = db.get(m.Empleado, usuario.id_usuario)
-        if emp:
-            id_sucursal = emp.id_sucursal
+    dia_consulta = fecha or datetime.now(TZ).date()
+    inicio_dia = datetime.combine(dia_consulta, time.min, tzinfo=TZ)
+    fin_dia = inicio_dia + timedelta(days=1)
 
-    query_pedidos = select(m.Pedido).where(
-        m.Pedido.fecha_creacion >= inicio_dia,
-        m.Pedido.fecha_creacion <= fin_dia,
+    query_pedidos = (
+        select(m.Pedido)
+        .options(selectinload(m.Pedido.detalles).joinedload(m.DetallePedido.producto))
+        .where(
+            m.Pedido.fecha_creacion >= inicio_dia,
+            m.Pedido.fecha_creacion < fin_dia,
+        )
     )
     if id_sucursal:
         query_pedidos = query_pedidos.where(m.Pedido.id_sucursal == id_sucursal)
@@ -162,7 +177,7 @@ def reporte_diario(
     for p in pedidos_validos:
         for d in p.detalles:
             if d.id_producto not in prod_ventas:
-                prod = db.get(m.Producto, d.id_producto)
+                prod = d.producto
                 nom = prod.nombre if prod else f"Producto #{d.id_producto}"
                 prod_ventas[d.id_producto] = {"id_producto": d.id_producto, "nombre_producto": nom, "unidades_vendidas": 0, "ingresos": Decimal("0.00")}
             prod_ventas[d.id_producto]["unidades_vendidas"] += d.cantidad
@@ -191,7 +206,7 @@ def reporte_diario(
 
 @router.get("/mensual", response_model=ReporteMensualOut)
 def reporte_mensual(
-    anio: Optional[int] = Query(None, description="Año (ej. 2026). Por defecto: año actual"),
+    anio: Optional[int] = Query(None, ge=2020, le=2100, description="Año (ej. 2026). Por defecto: año actual"),
     mes: Optional[int] = Query(None, ge=1, le=12, description="Mes (1-12). Por defecto: mes actual"),
     id_sucursal: Optional[int] = Query(None, description="Filtrar por ID de sucursal"),
     usuario: m.Usuario = Depends(require_roles("ADMIN", "EMPLEADO")),
@@ -199,20 +214,27 @@ def reporte_mensual(
 ):
     """
     (Empresa / Admin) Genera el reporte mensual con desglose de ventas por día,
-    rendimiento de repartidores y ranking de productos estrella.
+    rendimiento de repartidores y ranking de productos estrella en horario local (UTC-6).
     """
-    ahora = datetime.now(timezone.utc)
+    id_sucursal = _sucursal_permitida(db, usuario, id_sucursal)
+
+    ahora = datetime.now(TZ)
     anio_sel = anio or ahora.year
     mes_sel = mes or ahora.month
 
-    if usuario.rol.nombre == "EMPLEADO":
-        emp = db.get(m.Empleado, usuario.id_usuario)
-        if emp:
-            id_sucursal = emp.id_sucursal
+    inicio_mes = datetime(anio_sel, mes_sel, 1, tzinfo=TZ)
+    if mes_sel == 12:
+        fin_mes = datetime(anio_sel + 1, 1, 1, tzinfo=TZ)
+    else:
+        fin_mes = datetime(anio_sel, mes_sel + 1, 1, tzinfo=TZ)
 
-    query_pedidos = select(m.Pedido).where(
-        extract("year", m.Pedido.fecha_creacion) == anio_sel,
-        extract("month", m.Pedido.fecha_creacion) == mes_sel,
+    query_pedidos = (
+        select(m.Pedido)
+        .options(selectinload(m.Pedido.detalles).joinedload(m.DetallePedido.producto))
+        .where(
+            m.Pedido.fecha_creacion >= inicio_mes,
+            m.Pedido.fecha_creacion < fin_mes,
+        )
     )
     if id_sucursal:
         query_pedidos = query_pedidos.where(m.Pedido.id_sucursal == id_sucursal)
@@ -237,7 +259,7 @@ def reporte_mensual(
     dias_dict: dict[int, dict] = {d: {"dia": d, "total_pedidos": 0, "total_ventas": Decimal("0.00")} for d in range(1, dias_en_mes + 1)}
 
     for p in pedidos_validos:
-        dia_num = p.fecha_creacion.day if p.fecha_creacion else 1
+        dia_num = p.fecha_creacion.astimezone(TZ).day if p.fecha_creacion else 1
         if dia_num in dias_dict:
             dias_dict[dia_num]["total_pedidos"] += 1
             dias_dict[dia_num]["total_ventas"] += p.total
@@ -277,7 +299,7 @@ def reporte_mensual(
     for p in pedidos_validos:
         for d in p.detalles:
             if d.id_producto not in prod_ventas:
-                prod = db.get(m.Producto, d.id_producto)
+                prod = d.producto
                 nom = prod.nombre if prod else f"Producto #{d.id_producto}"
                 prod_ventas[d.id_producto] = {"id_producto": d.id_producto, "nombre_producto": nom, "unidades_vendidas": 0, "ingresos": Decimal("0.00")}
             prod_ventas[d.id_producto]["unidades_vendidas"] += d.cantidad

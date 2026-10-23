@@ -52,8 +52,8 @@ def puede_ver_pedido(db: Session, usuario: m.Usuario, pedido: m.Pedido) -> bool:
     rol = usuario.rol.nombre
     if rol == "ADMIN":
         return True
-    if rol == "CLIENTE":
-        return pedido.id_cliente == usuario.id_usuario
+    if pedido.id_cliente == usuario.id_usuario:
+        return True
     if rol == "REPARTIDOR":
         return pedido.id_repartidor == usuario.id_usuario
     return puede_gestionar_sucursal(db, usuario, pedido.id_sucursal)
@@ -481,7 +481,7 @@ def cambiar_estado(db: Session, pedido: m.Pedido, nuevo: str, usuario: m.Usuario
         permitido = es_su_repartidor if domicilio else gestiona
     else:  # CANCELADO
         permitido = gestiona or (
-            rol == "CLIENTE" and p.id_cliente == usuario.id_usuario and p.estado == "PENDIENTE"
+            p.id_cliente == usuario.id_usuario and p.estado == "PENDIENTE"
         )
 
     if not permitido:

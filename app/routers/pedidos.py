@@ -1,13 +1,15 @@
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models as m
 from .. import services
 from ..database import get_db
 from ..deps import get_current_user, require_roles
+from ..limiter import limiter
 from ..schemas import (
     DenunciaIn,
     DenunciaOut,
@@ -22,6 +24,26 @@ from ..schemas import (
 from ..services.email import enviar_factura_pedido
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
+
+
+def datos_factura(p: m.Pedido) -> dict:
+    return {
+        "id_pedido": p.id_pedido,
+        "fecha": p.fecha_creacion,
+        "metodo_pago": p.metodo_pago,
+        "estado_pago": p.estado_pago,
+        "tipo_entrega": p.tipo_entrega,
+        "costo_envio": p.costo_envio,
+        "total": p.total,
+        "lineas": [
+            (
+                d.producto.nombre if d.producto else f"Producto #{d.id_producto}",
+                d.cantidad,
+                d.precio_unitario,
+            )
+            for d in p.detalles
+        ],
+    }
 
 
 def _obtener(db: Session, id_pedido: int, usuario: m.Usuario) -> m.Pedido:
@@ -49,8 +71,7 @@ def crear_pedido(
         enviar_factura_pedido,
         usuario.email,
         usuario.nombre_completo,
-        pedido,
-        db,
+        datos_factura(pedido),
     )
     return services.pedido_a_out(pedido)
 
@@ -117,8 +138,7 @@ def cambiar_estado(
                 enviar_factura_pedido,
                 cliente.email,
                 cliente.nombre_completo,
-                pedido_actualizado,
-                db,
+                datos_factura(pedido_actualizado),
             )
     return services.pedido_a_out(pedido_actualizado)
 
@@ -148,14 +168,19 @@ def asignar_repartidor(
 
 
 @router.post("/{id_pedido}/enviar-factura", response_model=MensajeRespuesta)
+@limiter.limit("5/hour")
 def reenviar_factura(
+    request: Request,
     id_pedido: int,
     background_tasks: BackgroundTasks,
     usuario: m.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Envía la factura completa y detallada de la compra al correo del cliente."""
-    pedido = _obtener(db, id_pedido, usuario)
+    pedido = db.get(m.Pedido, id_pedido)
+    if pedido is None or not (pedido.id_cliente == usuario.id_usuario or usuario.rol.nombre == "ADMIN"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+
     cliente = db.get(m.Usuario, pedido.id_cliente)
     if cliente is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
@@ -164,14 +189,15 @@ def reenviar_factura(
         enviar_factura_pedido,
         cliente.email,
         cliente.nombre_completo,
-        pedido,
-        db,
+        datos_factura(pedido),
     )
-    return MensajeRespuesta(mensaje=f"La factura del pedido #{pedido.id_pedido} fue enviada a {cliente.email}.")
+    return MensajeRespuesta(mensaje="Te enviamos la factura a tu correo registrado.")
 
 
 @router.post("/{id_pedido}/denunciar", response_model=DenunciaOut, status_code=status.HTTP_201_CREATED)
+@limiter.limit("5/hour")
 def denunciar_repartidor(
+    request: Request,
     id_pedido: int,
     data: DenunciaIn,
     usuario: m.Usuario = Depends(require_roles("CLIENTE", "REPARTIDOR")),
@@ -215,8 +241,15 @@ def denunciar_repartidor(
         estado="PENDIENTE",
     )
     db.add(denuncia)
-    db.commit()
-    db.refresh(denuncia)
+    try:
+        db.commit()
+        db.refresh(denuncia)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Ya existe un reporte en trámite para este pedido.",
+        )
 
     return DenunciaOut(
         id_denuncia=denuncia.id_denuncia,
@@ -236,6 +269,8 @@ def denunciar_repartidor(
 @router.get("/denuncias/todas", response_model=list[DenunciaOut])
 def listar_denuncias(
     estado: Optional[str] = Query(None, description="Filtrar por 'PENDIENTE', 'INVESTIGANDO', 'RESUELTO', 'DESESTIMADA'"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     usuario: m.Usuario = Depends(require_roles("ADMIN")),
     db: Session = Depends(get_db),
 ):
@@ -243,7 +278,9 @@ def listar_denuncias(
     query = select(m.DenunciaRepartidor)
     if estado:
         query = query.where(m.DenunciaRepartidor.estado == estado.upper())
-    denuncias = db.scalars(query.order_by(m.DenunciaRepartidor.fecha_creacion.desc())).all()
+    denuncias = db.scalars(
+        query.order_by(m.DenunciaRepartidor.fecha_creacion.desc()).offset(offset).limit(limit)
+    ).all()
 
     resultado = []
     for d in denuncias:

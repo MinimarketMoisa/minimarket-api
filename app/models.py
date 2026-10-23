@@ -282,6 +282,12 @@ class DenunciaRepartidor(Base):
     __table_args__ = (
         Index("ix_denuncia_pedido", "id_pedido"),
         Index("ix_denuncia_repartidor", "id_repartidor"),
+        Index(
+            "uq_denuncia_abierta",
+            "id_pedido",
+            unique=True,
+            postgresql_where=text("estado IN ('PENDIENTE', 'INVESTIGANDO')"),
+        ),
     )
 
 
