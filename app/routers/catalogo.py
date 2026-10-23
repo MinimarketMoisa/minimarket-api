@@ -44,7 +44,8 @@ def listar_productos(
     if id_categoria is not None:
         consulta = consulta.where(m.Producto.id_categoria == id_categoria)
     if q:
-        consulta = consulta.where(m.Producto.nombre.ilike(f"%{q}%"))
+        q_escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        consulta = consulta.where(m.Producto.nombre.ilike(f"%{q_escaped}%"))
     return db.scalars(consulta.order_by(m.Producto.nombre).offset(skip).limit(limit)).all()
 
 
@@ -155,6 +156,10 @@ def editar_producto(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Producto no encontrado")
 
     cambios = data.model_dump(exclude_unset=True)
+    if "precio" in cambios and "precio_base" not in cambios:
+        cambios["precio_base"] = cambios.pop("precio")
+    elif "precio" in cambios:
+        cambios.pop("precio")
 
     if "id_categoria" in cambios and cambios["id_categoria"] is not None:
         if db.get(m.Categoria, cambios["id_categoria"]) is None:

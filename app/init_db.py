@@ -11,6 +11,10 @@ def init() -> None:
     Base.metadata.create_all(bind=engine)
     with engine.begin() as conn:
         conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS email_verificado BOOLEAN NOT NULL DEFAULT FALSE;"))
+        conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;"))
+        conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS intentos_fallidos INTEGER NOT NULL DEFAULT 0;"))
+        conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS bloqueado_hasta TIMESTAMPTZ NULL;"))
+        conn.execute(text("ALTER TABLE usuario ADD COLUMN IF NOT EXISTS ultimo_correo_en TIMESTAMPTZ NULL;"))
         conn.execute(text("ALTER TABLE pedido ADD COLUMN IF NOT EXISTS estado_repartidor VARCHAR(20) DEFAULT NULL;"))
     with SessionLocal() as db:
         existentes = set(db.scalars(select(models.Rol.nombre)))

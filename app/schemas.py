@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, PlainSerializer
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, PlainSerializer, field_validator
 
 # En el JSON los montos y coordenadas salen como numero (no como texto)
 Num = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
@@ -14,6 +14,40 @@ EstadoPedido = Literal["PENDIENTE", "PREPARADO", "EN_RUTA", "ENTREGADO", "CANCEL
 EstadoPago = Literal["PENDIENTE", "PAGADO"]
 EstadoRepartidor = Literal["LIBRE", "PENDIENTE"]
 
+ROLES_PERMITIDOS = {"CLIENTE", "REPARTIDOR", "EMPLEADO", "ADMIN"}
+
+
+def validar_password(v: str) -> str:
+    if len(v) < 8 or len(v) > 128:
+        raise ValueError("La contraseña debe tener entre 8 y 128 caracteres")
+    if v.lower() in {"12345678", "password", "contrasena", "qwerty1234", "admin1234"}:
+        raise ValueError("La contraseña elegida es demasiado común o insegura")
+    return v
+
+
+def validar_email(v: str) -> str:
+    v = v.strip().lower()
+    if "@" not in v or "." not in v.split("@")[-1] or len(v) < 5 or len(v) > 254:
+        raise ValueError("Dirección de correo electrónico inválida")
+    return v
+
+
+def validar_imagen_url(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v_clean = v.strip()
+    if not (v_clean.startswith("http://") or v_clean.startswith("https://")):
+        raise ValueError("La URL de la imagen debe comenzar con http:// o https://")
+    if "javascript:" in v_clean.lower():
+        raise ValueError("URL de imagen no permitida")
+    return v_clean
+
+
+def validar_rol(v: Optional[str]) -> Optional[str]:
+    if v is not None and v.upper() not in ROLES_PERMITIDOS:
+        raise ValueError(f"Rol inválido. Roles válidos: {', '.join(sorted(ROLES_PERMITIDOS))}")
+    return v.upper() if v else None
+
 
 class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -22,9 +56,19 @@ class ORM(BaseModel):
 # ---- Autenticacion ----
 class RegistroIn(BaseModel):
     nombre_completo: str = Field(min_length=2, max_length=150)
-    email: EmailStr
+    email: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=8, max_length=128)
     telefono: Optional[str] = Field(default=None, max_length=20)
+
+    @field_validator("email")
+    @classmethod
+    def _val_email(cls, v: str) -> str:
+        return validar_email(v)
+
+    @field_validator("password")
+    @classmethod
+    def _val_pwd(cls, v: str) -> str:
+        return validar_password(v)
 
 
 class TokenOut(BaseModel):
@@ -68,6 +112,15 @@ class ClienteAdminUpdate(BaseModel):
     rol: Optional[str] = None
     password: Optional[str] = Field(None, min_length=8, max_length=128)
 
+    @field_validator("password")
+    @classmethod
+    def _val_pwd(cls, v: Optional[str]) -> Optional[str]:
+        return validar_password(v) if v else None
+
+    @field_validator("rol")
+    @classmethod
+    def _val_rol(cls, v: Optional[str]) -> Optional[str]:
+        return validar_rol(v)
 
 
 # ---- Catalogo ----
@@ -110,6 +163,11 @@ class ProductoIn(BaseModel):
     precio_base: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
     imagen_url: Optional[str] = Field(default=None, max_length=500)
 
+    @field_validator("imagen_url")
+    @classmethod
+    def _val_img(cls, v: Optional[str]) -> Optional[str]:
+        return validar_imagen_url(v)
+
 
 class DisponibilidadOut(BaseModel):
     id_sucursal: int
@@ -138,7 +196,7 @@ class PedidoItemIn(BaseModel):
 
 
 class PedidoIn(BaseModel):
-    items: list[PedidoItemIn] = Field(min_length=1)
+    items: list[PedidoItemIn] = Field(min_length=1, max_length=50)
     tipo_entrega: TipoEntrega
     metodo_pago: MetodoPago
     canal: Canal
@@ -247,8 +305,6 @@ class RechazoRepartidorOut(BaseModel):
     pedido: Optional[PedidoParaRepartidorOut] = None
 
 
-
-
 # ---- Inventario ----
 class InventarioIn(BaseModel):
     id_sucursal: int
@@ -264,37 +320,79 @@ class InventarioOut(BaseModel):
     stock_disponible: int
     fecha_vencimiento: Optional[date] = None
 
+
 class SolicitarCambioEmailIn(BaseModel):
-    nuevo_email: EmailStr
+    nuevo_email: str = Field(min_length=5, max_length=254)
+    password: str = Field(min_length=1, description="Contraseña actual para verificar tu identidad")
+
+    @field_validator("nuevo_email")
+    @classmethod
+    def _val_email(cls, v: str) -> str:
+        return validar_email(v)
+
 
 class ConfirmarCambioEmailIn(BaseModel):
     token: str
 
+
 class VerificarEmailIn(BaseModel):
     token: str
 
+
 class ReenviarVerificacionIn(BaseModel):
-    email: EmailStr
+    email: str = Field(min_length=5, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def _val_email(cls, v: str) -> str:
+        return validar_email(v)
+
+
+class OlvideContrasenaIn(BaseModel):
+    email: str = Field(min_length=5, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def _val_email(cls, v: str) -> str:
+        return validar_email(v)
+
+
+class RestablecerContrasenaIn(BaseModel):
+    token: str
+    password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("password")
+    @classmethod
+    def _val_pwd(cls, v: str) -> str:
+        return validar_password(v)
+
 
 class MensajeRespuesta(BaseModel):
     mensaje: str
     verificado: Optional[bool] = None
 
 
-
 class CategoriaIn(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
-    descripcion: Optional[str] = None
+    descripcion: Optional[str] = Field(None, max_length=500)
+
 
 class CategoriaUpdate(BaseModel):
     nombre: Optional[str] = Field(None, min_length=2, max_length=100)
-    descripcion: Optional[str] = None
+    descripcion: Optional[str] = Field(None, max_length=500)
+
 
 class ProductoUpdate(BaseModel):
     id_categoria: Optional[int] = None
     codigo_barras: Optional[str] = None
-    nombre: Optional[str] = None
-    descripcion: Optional[str] = None
+    nombre: Optional[str] = Field(None, min_length=1, max_length=200)
+    descripcion: Optional[str] = Field(None, max_length=1000)
+    precio_base: Optional[Decimal] = Field(None, gt=0)
     precio: Optional[Decimal] = Field(None, gt=0)
-    imagen_url: Optional[str] = None
+    imagen_url: Optional[str] = Field(None, max_length=500)
     activo: Optional[bool] = None
+
+    @field_validator("imagen_url")
+    @classmethod
+    def _val_img(cls, v: Optional[str]) -> Optional[str]:
+        return validar_imagen_url(v)

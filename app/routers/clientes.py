@@ -6,8 +6,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models as m
+from .. import services
 from ..database import get_db
-from ..deps import require_roles
+from ..deps import get_current_user, require_roles
 from ..schemas import (
     ClienteAdminOut,
     ClienteAdminUpdate,
@@ -85,12 +86,10 @@ def obtener_cliente(
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
 
-    # Obtener direcciones del cliente
     direcciones = db.scalars(
         select(m.Direccion).where(m.Direccion.id_cliente == id_cliente)
     ).all()
 
-    # Contar pedidos del cliente
     total_pedidos = db.scalar(
         select(func.count(m.Pedido.id_pedido)).where(m.Pedido.id_cliente == id_cliente)
     ) or 0
@@ -108,20 +107,34 @@ def obtener_cliente(
 def editar_cliente(
     id_cliente: int,
     data: ClienteAdminUpdate,
+    admin_actual: m.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    (Solo ADMIN) Modifica los datos de un cliente: nombre, email, teléfono,
+    (Solo ADMIN) Modifica los datos de un usuario: nombre, email, teléfono,
     estado activo, verificación de correo, rol o reseteo de contraseña.
+    Protegido contra auto-bloqueo del administrador y revoca sesiones automáticamente.
     """
     usuario = db.get(m.Usuario, id_cliente)
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
 
+    # Prevención de auto-bloqueo
+    if id_cliente == admin_actual.id_usuario:
+        if data.activo is False:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu propia cuenta de administrador"
+            )
+        if data.rol is not None and data.rol.upper() != "ADMIN":
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "No puedes quitarte a ti mismo el rol de ADMIN"
+            )
+
+    revocar_sesiones = False
+
     if data.email is not None:
         nuevo_email = str(data.email).lower()
         if nuevo_email != usuario.email.lower():
-            # Verificar que no esté en uso por otro usuario
             existe = db.scalar(
                 select(m.Usuario.id_usuario).where(
                     func.lower(m.Usuario.email) == nuevo_email,
@@ -134,6 +147,10 @@ def editar_cliente(
                     "Ese correo ya está registrado por otro usuario",
                 )
             usuario.email = nuevo_email
+            # Si el admin no especificó explícitamente el estado de verificación, requerir nueva verificación
+            if data.email_verificado is None:
+                usuario.email_verificado = False
+            revocar_sesiones = True
 
     if data.nombre_completo is not None:
         usuario.nombre_completo = data.nombre_completo
@@ -141,14 +158,16 @@ def editar_cliente(
     if data.telefono is not None:
         usuario.telefono = data.telefono
 
-    if data.activo is not None:
+    if data.activo is not None and data.activo != usuario.activo:
         usuario.activo = data.activo
+        revocar_sesiones = True
 
     if data.email_verificado is not None:
         usuario.email_verificado = data.email_verificado
 
     if data.password is not None and data.password.strip():
         usuario.password = hash_password(data.password)
+        revocar_sesiones = True
 
     if data.rol is not None:
         rol_obj = db.scalar(select(m.Rol).where(func.upper(m.Rol.nombre) == data.rol.upper()))
@@ -157,7 +176,12 @@ def editar_cliente(
                 status.HTTP_400_BAD_REQUEST,
                 f"El rol '{data.rol}' no existe. Roles válidos: CLIENTE, REPARTIDOR, EMPLEADO, ADMIN",
             )
-        usuario.id_rol = rol_obj.id_rol
+        if usuario.id_rol != rol_obj.id_rol:
+            usuario.id_rol = rol_obj.id_rol
+            revocar_sesiones = True
+
+    if revocar_sesiones:
+        usuario.token_version += 1
 
     try:
         db.commit()
@@ -172,17 +196,41 @@ def editar_cliente(
 @router.delete("/{id_cliente}")
 def desactivar_cliente(
     id_cliente: int,
+    admin_actual: m.Usuario = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    (Solo ADMIN) Desactiva a un cliente (bloquea su acceso al sistema).
-    No elimina el registro para preservar el historial de pedidos y auditoría.
+    (Solo ADMIN) Desactiva a un usuario. Reasigna automáticamente los pedidos si es un REPARTIDOR,
+    revoca todas sus sesiones activas y previene auto-bloqueo del administrador.
     """
+    if id_cliente == admin_actual.id_usuario:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu propia cuenta de administrador"
+        )
+
     usuario = db.get(m.Usuario, id_cliente)
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
 
+    # Si el usuario a desactivar es un REPARTIDOR, reasignar sus pedidos activos
+    if usuario.rol.nombre == "REPARTIDOR":
+        pedidos_activos = db.scalars(
+            select(m.Pedido).where(
+                m.Pedido.id_repartidor == id_cliente,
+                m.Pedido.estado.in_(services.ESTADOS_ACTIVOS),
+            )
+        ).all()
+        for ped in pedidos_activos:
+            ped.id_repartidor = None
+            ped.estado_repartidor = None
+            services.asignar_repartidor(db, ped)
+
+        perfil = db.get(m.PerfilRepartidor, id_cliente)
+        if perfil:
+            perfil.estado_operativo = "PENDIENTE"
+
     usuario.activo = False
+    usuario.token_version += 1
     db.commit()
 
     return {
@@ -199,12 +247,14 @@ def reactivar_cliente(
 ):
     """
     (Solo ADMIN) Reactiva a un cliente previamente desactivado.
+    Incrementa token_version para evitar que revivan tokens previos a la desactivación.
     """
     usuario = db.get(m.Usuario, id_cliente)
     if usuario is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Cliente no encontrado")
 
     usuario.activo = True
+    usuario.token_version += 1
     db.commit()
 
     return {

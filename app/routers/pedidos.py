@@ -31,9 +31,18 @@ def crear_pedido(
 
 
 @router.get("/mis-pedidos", response_model=list[PedidoOut])
-def mis_pedidos(usuario: m.Usuario = Depends(require_roles("CLIENTE")), db: Session = Depends(get_db)):
+def mis_pedidos(
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    usuario: m.Usuario = Depends(require_roles("CLIENTE")),
+    db: Session = Depends(get_db),
+):
     pedidos = db.scalars(
-        select(m.Pedido).where(m.Pedido.id_cliente == usuario.id_usuario).order_by(m.Pedido.id_pedido.desc())
+        select(m.Pedido)
+        .where(m.Pedido.id_cliente == usuario.id_usuario)
+        .order_by(m.Pedido.id_pedido.desc())
+        .offset(offset)
+        .limit(limit)
     ).all()
     return [services.pedido_a_out(p) for p in pedidos]
 

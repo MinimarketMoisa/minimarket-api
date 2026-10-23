@@ -47,6 +47,10 @@ class Usuario(Base):
     telefono: Mapped[Optional[str]] = mapped_column(String(20))
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     email_verificado: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    intentos_fallidos: Mapped[int] = mapped_column(Integer, default=0, server_default=text("0"))
+    bloqueado_hasta: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    ultimo_correo_en: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     # Columnas que Django necesita para usar esta tabla como modelo de usuario / Admin
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
