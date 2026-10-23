@@ -271,3 +271,135 @@ def enviar_aviso_seguridad(destinatario: str, nombre_usuario: str, accion: str) 
     """
     msg.add_alternative(html_content, subtype="html")
     return _enviar_email(msg, destinatario)
+
+
+def enviar_factura_pedido(destinatario: str, nombre_usuario: str, pedido, db=None) -> bool:
+    """Envía un ticket / factura detallada con el desglose completo del pedido."""
+    nombre_seguro = html.escape(nombre_usuario)
+    ticket_num = f"#PED-{pedido.id_pedido:06d}"
+    fecha_str = pedido.fecha_creacion.strftime("%d/%m/%Y %H:%M") if pedido.fecha_creacion else "Hoy"
+
+    # Construir filas de la tabla de productos
+    filas_html = ""
+    filas_texto = ""
+    subtotal_prod = 0.0
+
+    for d in pedido.detalles:
+        nom_prod = html.escape(d.producto.nombre if hasattr(d, "producto") and d.producto else f"Producto #{d.id_producto}")
+        cant = d.cantidad
+        p_unit = float(d.precio_unitario)
+        sub = cant * p_unit
+        subtotal_prod += sub
+
+        filas_html += f"""
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 10px 8px; font-size: 14px; color: #1e293b;">{nom_prod}</td>
+            <td style="padding: 10px 8px; font-size: 14px; text-align: center; color: #475569;">{cant}</td>
+            <td style="padding: 10px 8px; font-size: 14px; text-align: right; color: #475569;">${p_unit:.2f}</td>
+            <td style="padding: 10px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #0f172a;">${sub:.2f}</td>
+        </tr>
+        """
+        filas_texto += f"- {nom_prod} x{cant} @ ${p_unit:.2f} = ${sub:.2f}\n"
+
+    envio = float(pedido.costo_envio or 0)
+    total = float(pedido.total or (subtotal_prod + envio))
+
+    msg = EmailMessage()
+    msg["Subject"] = f"Comprobante de Compra {ticket_num} - Minimarket"
+    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["To"] = destinatario
+
+    msg.set_content(
+        f"Hola {nombre_usuario},\n\n"
+        f"Gracias por tu compra en Minimarket.\n\n"
+        f"Comprobante: {ticket_num}\n"
+        f"Fecha: {fecha_str}\n"
+        f"Método de Pago: {pedido.metodo_pago} ({pedido.estado_pago})\n\n"
+        f"DETALLE DE PRODUCTOS:\n"
+        f"{filas_texto}\n"
+        f"Subtotal: ${subtotal_prod:.2f}\n"
+        f"Costo de Envío: ${envio:.2f}\n"
+        f"TOTAL: ${total:.2f}\n\n"
+        f"Si tienes alguna duda o tu pedido presenta inconvenientes, comunícate con nosotros."
+    )
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Comprobante de Compra {ticket_num}</title>
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 10px;">
+        <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+                <td align="center">
+                    <div style="max-width: 540px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: left;">
+                        <!-- Encabezado -->
+                        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px;">
+                            <h2 style="color: #1e40af; margin: 0; font-size: 22px;">Minimarket</h2>
+                            <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Comprobante de Compra / Ticket</p>
+                        </div>
+
+                        <!-- Metadatos -->
+                        <table width="100%" style="margin-bottom: 20px; font-size: 13px; color: #475569;">
+                            <tr>
+                                <td><strong>N.º de Orden:</strong> {ticket_num}</td>
+                                <td style="text-align: right;"><strong>Fecha:</strong> {fecha_str}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cliente:</strong> {nombre_seguro}</td>
+                                <td style="text-align: right;"><strong>Pago:</strong> {pedido.metodo_pago}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Tipo:</strong> {pedido.tipo_entrega}</td>
+                                <td style="text-align: right;"><strong>Estado Pago:</strong> {pedido.estado_pago}</td>
+                            </tr>
+                        </table>
+
+                        <!-- Tabla de productos -->
+                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px; border-collapse: collapse;">
+                            <thead>
+                                <tr style="background-color: #f1f5f9; text-transform: uppercase; font-size: 11px; color: #475569; letter-spacing: 0.5px;">
+                                    <th style="padding: 8px; text-align: left;">Producto</th>
+                                    <th style="padding: 8px; text-align: center;">Cant.</th>
+                                    <th style="padding: 8px; text-align: right;">Precio</th>
+                                    <th style="padding: 8px; text-align: right;">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filas_html}
+                            </tbody>
+                        </table>
+
+                        <!-- Totales -->
+                        <div style="background-color: #f8fafc; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
+                            <table width="100%" style="font-size: 14px; color: #334155;">
+                                <tr>
+                                    <td>Subtotal Productos:</td>
+                                    <td style="text-align: right;">${subtotal_prod:.2f}</td>
+                                </tr>
+                                <tr>
+                                    <td>Costo de Envío:</td>
+                                    <td style="text-align: right;">${envio:.2f}</td>
+                                </tr>
+                                <tr style="font-size: 17px; font-weight: 700; color: #0f172a; border-top: 1px solid #e2e8f0;">
+                                    <td style="padding-top: 8px;">TOTAL:</td>
+                                    <td style="padding-top: 8px; text-align: right; color: #2563eb;">${total:.2f}</td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <!-- Pie de página -->
+                        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
+                            ¡Gracias por comprar en Minimarket! Conserva este comprobante para cualquier reclamo o seguimiento de tu entrega.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+    msg.add_alternative(html_content, subtype="html")
+    return _enviar_email(msg, destinatario)

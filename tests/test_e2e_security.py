@@ -48,6 +48,12 @@ def limpiar_usuarios_test():
                 u.activo = True
                 u.email_verificado = True
                 u.password = security.hash_password("Prueba12345")
+                # Cancelar pedidos pendientes viejos del test para no topar el límite anti-acaparamiento (5)
+                pedidos_pendientes = db.scalars(
+                    select(m.Pedido).where(m.Pedido.id_cliente == u.id_usuario, m.Pedido.estado == "PENDIENTE")
+                ).all()
+                for p in pedidos_pendientes:
+                    p.estado = "CANCELADO"
         db.commit()
 
 
@@ -444,6 +450,157 @@ def test_slowapi_rate_limiter():
         assert hit_429, "SlowAPI no aplicó el límite de tasa"
     finally:
         app.state.limiter.enabled = False
+
+
+# ---------------------------------------------------------------------------
+# Nuevas Funcionalidades: Repartidor-Cliente, Denuncias y Reportes
+# ---------------------------------------------------------------------------
+def test_repartidor_puede_crear_direccion_y_hacer_pedidos():
+    rep_token = get_token("repartidor1@minimarket.test")
+
+    # 1. Repartidor puede registrar su propia dirección
+    res_dir = client.post(
+        "/direcciones",
+        headers=auth_headers(rep_token),
+        json={
+            "id_municipio": 1,
+            "detalle_direccion": "Casa del repartidor colonia norte #45",
+            "punto_referencia": "Frente al parque",
+        },
+    )
+    assert res_dir.status_code == 201
+    id_dir = res_dir.json()["id_direccion"]
+
+    # 2. Repartidor puede hacer un pedido como cliente
+    res_ped = client.post(
+        "/pedidos",
+        headers=auth_headers(rep_token),
+        json={
+            "tipo_entrega": "DOMICILIO",
+            "id_direccion": id_dir,
+            "metodo_pago": "CONTRA_ENTREGA",
+            "canal": "APP",
+            "items": [{"id_producto": 1, "cantidad": 1}],
+        },
+    )
+    assert res_ped.status_code == 201
+    ped_data = res_ped.json()
+
+    # 3. La API NUNCA se lo asigna a él mismo
+    with SessionLocal() as db:
+        rep_u = db.scalar(select(m.Usuario).where(m.Usuario.email == "repartidor1@minimarket.test"))
+        id_rep1 = rep_u.id_usuario
+
+    assert ped_data.get("id_repartidor") != id_rep1, "La API le asignó el pedido al mismo repartidor que lo compró"
+
+    # 4. Repartidor puede consultar sus compras en mis-pedidos
+    res_mis = client.get("/pedidos/mis-pedidos", headers=auth_headers(rep_token))
+    assert res_mis.status_code == 200
+    ids = [p["id_pedido"] for p in res_mis.json()]
+    assert ped_data["id_pedido"] in ids
+
+
+def test_cliente_puede_denunciar_repartidor_asignado():
+    cli_token = get_token("cliente@minimarket.test")
+    admin_token = get_token("admin@minimarket.test")
+
+    # 1. Crear un pedido a domicilio que reciba repartidor
+    with SessionLocal() as db:
+        dir_obj = db.scalar(select(m.Direccion).where(m.Direccion.id_cliente == 5))
+        id_dir = dir_obj.id_direccion if dir_obj else 1
+
+    res_ped = client.post(
+        "/pedidos",
+        headers=auth_headers(cli_token),
+        json={
+            "tipo_entrega": "DOMICILIO",
+            "id_direccion": id_dir,
+            "metodo_pago": "CONTRA_ENTREGA",
+            "canal": "APP",
+            "items": [{"id_producto": 2, "cantidad": 1}],
+        },
+    )
+    assert res_ped.status_code == 201
+    id_pedido = res_ped.json()["id_pedido"]
+
+    # Asegurar que tenga repartidor asignado
+    with SessionLocal() as db:
+        ped = db.get(m.Pedido, id_pedido)
+        if ped.id_repartidor is None:
+            ped.id_repartidor = 4  # repartidor 1
+            db.commit()
+
+    # 2. Cliente denuncia al repartidor porque no llegó
+    res_den = client.post(
+        "/pedidos/%d/denunciar" % id_pedido,
+        headers=auth_headers(cli_token),
+        json={
+            "motivo": "El repartidor nunca llegó a la dirección",
+            "descripcion": "Esperé más de 1 hora y el repartidor no responde a las llamadas.",
+        },
+    )
+    assert res_den.status_code == 201
+    den_data = res_den.json()
+    assert den_data["motivo"] == "El repartidor nunca llegó a la dirección"
+    assert den_data["estado"] == "PENDIENTE"
+    id_denuncia = den_data["id_denuncia"]
+
+    # 3. No puede denunciar dos veces abiertas el mismo pedido
+    res_dupl = client.post(
+        "/pedidos/%d/denunciar" % id_pedido,
+        headers=auth_headers(cli_token),
+        json={"motivo": "Reitero la queja"},
+    )
+    assert res_dupl.status_code == 409
+
+    # 4. Administrador revisa las denuncias
+    res_admin_list = client.get("/pedidos/denuncias/todas", headers=auth_headers(admin_token))
+    assert res_admin_list.status_code == 200
+    ids_den = [d["id_denuncia"] for d in res_admin_list.json()]
+    assert id_denuncia in ids_den
+
+    # 5. Administrador resuelve la denuncia
+    res_resolver = client.patch(
+        "/pedidos/denuncias/%d" % id_denuncia,
+        headers=auth_headers(admin_token),
+        json={"estado": "RESUELTO", "resolucion_admin": "Se contactó al repartidor y se reembolsó al cliente."},
+    )
+    assert res_resolver.status_code == 200
+    assert res_resolver.json()["estado"] == "RESUELTO"
+
+
+def test_factura_y_reportes_empresa():
+    admin_token = get_token("admin@minimarket.test")
+    cli_token = get_token("cliente@minimarket.test")
+
+    # 1. Endpoint de reenviar factura del pedido
+    res_factura = client.post("/pedidos/1/enviar-factura", headers=auth_headers(cli_token))
+    assert res_factura.status_code == 200
+    assert "enviada" in res_factura.json()["mensaje"]
+
+    # 2. Reporte individual de auditoría de pedido para empresa
+    res_rep_ped = client.get("/reportes/pedidos/1", headers=auth_headers(admin_token))
+    assert res_rep_ped.status_code == 200
+    data_rep = res_rep_ped.json()
+    assert "total_general" in data_rep
+    assert "detalles_productos" in data_rep
+
+    # 3. Reporte diario consolidado
+    res_diario = client.get("/reportes/diario", headers=auth_headers(admin_token))
+    assert res_diario.status_code == 200
+    diario_data = res_diario.json()
+    assert "total_pedidos" in diario_data
+    assert "ingresos_totales" in diario_data
+    assert "por_metodo_pago" in diario_data
+
+    # 4. Reporte mensual consolidado
+    res_mensual = client.get("/reportes/mensual", headers=auth_headers(admin_token))
+    assert res_mensual.status_code == 200
+    mensual_data = res_mensual.json()
+    assert "tasa_efectividad_porcentaje" in mensual_data
+    assert "ventas_por_dia" in mensual_data
+    assert "ventas_por_sucursal" in mensual_data
+    assert "rendimiento_repartidores" in mensual_data
 
 
 if __name__ == "__main__":

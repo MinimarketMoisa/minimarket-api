@@ -207,6 +207,8 @@ def asignar_repartidor(db: Session, pedido: m.Pedido) -> bool:
             select(m.RechazoPedido.id_repartidor).where(m.RechazoPedido.id_pedido == pedido.id_pedido)
         ).all()
     )
+    # Si el cliente que pide es también repartidor, no puede auto-asignarse su propio pedido
+    rechazados.add(pedido.id_cliente)
 
     elegido = repartidor_mas_cercano(
         db, float(sucursal.latitud), float(sucursal.longitud), excluidos=rechazados

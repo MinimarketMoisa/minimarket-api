@@ -14,6 +14,7 @@ from .routers import (
     inventario,
     pedidos,
     repartidor,
+    reportes,
 )
 
 is_prod = settings.entorno == "produccion"
@@ -64,6 +65,7 @@ for router in (
     pedidos.router,
     repartidor.router,
     inventario.router,
+    reportes.router,
 ):
     app.include_router(router)
 

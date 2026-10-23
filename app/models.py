@@ -151,6 +151,8 @@ class Producto(Base):
     imagen_url: Mapped[Optional[str]] = mapped_column(String(500))
     activo: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
+    categoria: Mapped["Categoria"] = relationship()
+
     __table_args__ = (CheckConstraint("precio_base >= 0", name="ck_producto_precio"),)
 
 
@@ -257,4 +259,29 @@ class RechazoPedido(Base):
     __table_args__ = (
         Index("ix_rechazo_pedido_repartidor", "id_pedido", "id_repartidor"),
     )
+
+
+class DenunciaRepartidor(Base):
+    __tablename__ = "denuncia_repartidor"
+    id_denuncia: Mapped[int] = _pk()
+    id_pedido: Mapped[int] = _fk("pedido.id_pedido", ondelete="CASCADE")
+    id_cliente: Mapped[int] = _fk("usuario.id_usuario", ondelete="CASCADE")
+    id_repartidor: Mapped[int] = _fk("usuario.id_usuario", ondelete="CASCADE")
+    motivo: Mapped[str] = mapped_column(String(100))
+    descripcion: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    estado: Mapped[str] = mapped_column(String(30), default="PENDIENTE", server_default=text("'PENDIENTE'"))
+    fecha_creacion: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    resolucion_admin: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+
+    pedido: Mapped["Pedido"] = relationship()
+    cliente: Mapped["Usuario"] = relationship(foreign_keys=[id_cliente])
+    repartidor: Mapped["Usuario"] = relationship(foreign_keys=[id_repartidor])
+
+    __table_args__ = (
+        Index("ix_denuncia_pedido", "id_pedido"),
+        Index("ix_denuncia_repartidor", "id_repartidor"),
+    )
+
 

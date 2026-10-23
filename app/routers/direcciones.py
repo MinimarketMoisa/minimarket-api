@@ -12,7 +12,7 @@ router = APIRouter(prefix="/direcciones", tags=["Direcciones"])
 
 
 @router.get("", response_model=list[DireccionOut])
-def mis_direcciones(usuario: m.Usuario = Depends(require_roles("CLIENTE")), db: Session = Depends(get_db)):
+def mis_direcciones(usuario: m.Usuario = Depends(require_roles("CLIENTE", "REPARTIDOR")), db: Session = Depends(get_db)):
     return db.scalars(
         select(m.Direccion).where(m.Direccion.id_cliente == usuario.id_usuario).order_by(m.Direccion.id_direccion)
     ).all()
@@ -20,7 +20,7 @@ def mis_direcciones(usuario: m.Usuario = Depends(require_roles("CLIENTE")), db: 
 
 @router.post("", response_model=DireccionOut, status_code=status.HTTP_201_CREATED)
 def crear_direccion(
-    data: DireccionIn, usuario: m.Usuario = Depends(require_roles("CLIENTE")), db: Session = Depends(get_db)
+    data: DireccionIn, usuario: m.Usuario = Depends(require_roles("CLIENTE", "REPARTIDOR")), db: Session = Depends(get_db)
 ):
     if db.get(m.Municipio, data.id_municipio) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Municipio no encontrado")
@@ -32,7 +32,7 @@ def crear_direccion(
 
 @router.delete("/{id_direccion}", status_code=status.HTTP_204_NO_CONTENT)
 def borrar_direccion(
-    id_direccion: int, usuario: m.Usuario = Depends(require_roles("CLIENTE")), db: Session = Depends(get_db)
+    id_direccion: int, usuario: m.Usuario = Depends(require_roles("CLIENTE", "REPARTIDOR")), db: Session = Depends(get_db)
 ):
     direccion = db.get(m.Direccion, id_direccion)
     if direccion is None or direccion.id_cliente != usuario.id_usuario:

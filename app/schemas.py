@@ -396,3 +396,83 @@ class ProductoUpdate(BaseModel):
     @classmethod
     def _val_img(cls, v: Optional[str]) -> Optional[str]:
         return validar_imagen_url(v)
+
+
+# ---- Denuncias ----
+class DenunciaIn(BaseModel):
+    motivo: str = Field(min_length=3, max_length=100)
+    descripcion: Optional[str] = Field(None, max_length=1000)
+
+
+class DenunciaOut(BaseModel):
+    id_denuncia: int
+    id_pedido: int
+    id_cliente: int
+    nombre_cliente: str
+    id_repartidor: int
+    nombre_repartidor: str
+    motivo: str
+    descripcion: Optional[str] = None
+    estado: str
+    fecha_creacion: datetime
+    resolucion_admin: Optional[str] = None
+
+
+class ResolverDenunciaIn(BaseModel):
+    estado: Literal["PENDIENTE", "INVESTIGANDO", "RESUELTO", "DESESTIMADA"]
+    resolucion_admin: Optional[str] = Field(None, max_length=500)
+
+
+# ---- Reportes ----
+class ResumenSucursalOut(BaseModel):
+    id_sucursal: int
+    nombre_sucursal: str
+    total_pedidos: int
+    total_ventas: Num
+
+
+class TopProductoOut(BaseModel):
+    id_producto: int
+    nombre_producto: str
+    unidades_vendidas: int
+    ingresos: Num
+
+
+class ReporteDiarioOut(BaseModel):
+    fecha: date
+    total_pedidos: int
+    pedidos_entregados: int
+    pedidos_cancelados: int
+    pedidos_en_proceso: int
+    ingresos_totales: Num
+    ingresos_productos: Num
+    ingresos_envio: Num
+    por_metodo_pago: dict[str, Num]
+    por_sucursal: list[ResumenSucursalOut]
+    top_productos: list[TopProductoOut]
+
+
+class VentaPorDiaOut(BaseModel):
+    dia: int
+    total_pedidos: int
+    total_ventas: Num
+
+
+class RendimientoRepartidorOut(BaseModel):
+    id_repartidor: int
+    nombre_repartidor: str
+    entregas_completadas: int
+
+
+class ReporteMensualOut(BaseModel):
+    anio: int
+    mes: int
+    total_pedidos: int
+    ingresos_totales: Num
+    ingresos_productos: Num
+    ingresos_envio: Num
+    tasa_efectividad_porcentaje: float
+    ventas_por_dia: list[VentaPorDiaOut]
+    ventas_por_sucursal: list[ResumenSucursalOut]
+    rendimiento_repartidores: list[RendimientoRepartidorOut]
+    top_productos_mes: list[TopProductoOut]
