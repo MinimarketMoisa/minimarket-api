@@ -76,6 +76,8 @@ class Direccion(Base):
     id_municipio: Mapped[int] = _fk("municipio.id_municipio")
     detalle_direccion: Mapped[str] = mapped_column(String(300))
     punto_referencia: Mapped[Optional[str]] = mapped_column(String(300))
+    latitud: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6), nullable=True)
+    longitud: Mapped[Optional[Decimal]] = mapped_column(Numeric(9, 6), nullable=True)
 
     municipio: Mapped["Municipio"] = relationship()
 

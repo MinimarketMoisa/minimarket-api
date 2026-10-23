@@ -12,11 +12,15 @@ from ..config import settings
 from ..schemas import (
     ClienteParaRepartidorOut,
     DestinoEntregaOut,
+    DestinoSeguimientoOut,
     DetalleOut,
     PedidoIn,
     PedidoOut,
     PedidoParaRepartidorOut,
+    RepartidorSeguimientoOut,
+    SeguimientoPedidoOut,
     SucursalEntregaOut,
+    SucursalSeguimientoOut,
 )
 
 ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARADO", "EN_RUTA")
@@ -127,6 +131,8 @@ def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidor
                 detalle_direccion=dir_obj.detalle_direccion,
                 punto_referencia=dir_obj.punto_referencia,
                 municipio=dir_obj.municipio.nombre if dir_obj.municipio else None,
+                latitud=dir_obj.latitud,
+                longitud=dir_obj.longitud,
             )
 
     sucursal = db.get(m.Sucursal, p.id_sucursal)
@@ -164,6 +170,62 @@ def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidor
         destino=destino_out,
         sucursal=sucursal_out,
         detalles=detalles,
+    )
+
+
+def seguimiento_pedido_out(p: m.Pedido, db: Session) -> SeguimientoPedidoOut:
+    """
+    Construye la información geográfica y de estado en tiempo real para el cliente o empleado:
+    - Coordenadas y datos de la sucursal de origen.
+    - Coordenadas y dirección de entrega del cliente.
+    - Coordenadas en vivo y contacto del repartidor asignado.
+    """
+    sucursal = db.get(m.Sucursal, p.id_sucursal)
+    sucursal_out = SucursalSeguimientoOut(
+        id_sucursal=sucursal.id_sucursal if sucursal else p.id_sucursal,
+        nombre=sucursal.nombre if sucursal else f"Sucursal #{p.id_sucursal}",
+        direccion=sucursal.direccion if sucursal else "No especificada",
+        telefono=sucursal.telefono if sucursal else None,
+        latitud=sucursal.latitud if sucursal else None,
+        longitud=sucursal.longitud if sucursal else None,
+    )
+
+    destino_out = None
+    if p.id_direccion:
+        dir_obj = db.get(m.Direccion, p.id_direccion)
+        if dir_obj:
+            destino_out = DestinoSeguimientoOut(
+                id_direccion=dir_obj.id_direccion,
+                detalle_direccion=dir_obj.detalle_direccion,
+                punto_referencia=dir_obj.punto_referencia,
+                municipio=dir_obj.municipio.nombre if dir_obj.municipio else None,
+                latitud=dir_obj.latitud,
+                longitud=dir_obj.longitud,
+            )
+
+    repartidor_out = None
+    if p.id_repartidor:
+        rep_user = db.get(m.Usuario, p.id_repartidor)
+        rep_perfil = db.get(m.PerfilRepartidor, p.id_repartidor)
+        if rep_user:
+            repartidor_out = RepartidorSeguimientoOut(
+                id_repartidor=rep_user.id_usuario,
+                nombre=rep_user.nombre_completo,
+                telefono=rep_user.telefono,
+                latitud=rep_perfil.latitud_actual if rep_perfil else None,
+                longitud=rep_perfil.longitud_actual if rep_perfil else None,
+                ultima_actualizacion=rep_perfil.ultima_actualizacion if rep_perfil else None,
+            )
+
+    return SeguimientoPedidoOut(
+        id_pedido=p.id_pedido,
+        estado=p.estado,
+        estado_repartidor=getattr(p, "estado_repartidor", None),
+        tipo_entrega=p.tipo_entrega,
+        canal=p.canal,
+        sucursal=sucursal_out,
+        destino=destino_out,
+        repartidor=repartidor_out,
     )
 
 

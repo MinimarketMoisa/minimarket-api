@@ -19,6 +19,7 @@ from ..schemas import (
     RepartidorEstadoIn,
     UbicacionIn,
 )
+from ..services.tracking import tracking_manager
 
 router = APIRouter(prefix="/repartidor", tags=["Repartidor"])
 
@@ -149,18 +150,45 @@ def rechazar_pedido(
 
 
 @router.patch("/ubicacion", status_code=status.HTTP_204_NO_CONTENT)
-def actualizar_ubicacion(
+async def actualizar_ubicacion(
     data: UbicacionIn, usuario: m.Usuario = Depends(require_roles("REPARTIDOR")), db: Session = Depends(get_db)
 ):
-    """La app móvil la envía cada cierto tiempo."""
+    """
+    (App Móvil Repartidor) Actualiza las coordenadas GPS del repartidor.
+    Si tiene pedidos activos, retransmite en vivo sus coordenadas por WebSocket
+    a los clientes que estén visualizando el mapa del pedido.
+    """
     perfil = _perfil(db, usuario)
-    perfil.latitud_actual = Decimal(str(data.latitud))
-    perfil.longitud_actual = Decimal(str(data.longitud))
-    perfil.ultima_actualizacion = datetime.now(timezone.utc)
+    lat = Decimal(str(data.latitud))
+    lon = Decimal(str(data.longitud))
+    ahora = datetime.now(timezone.utc)
+    perfil.latitud_actual = lat
+    perfil.longitud_actual = lon
+    perfil.ultima_actualizacion = ahora
     db.flush()
     if perfil.estado_operativo == "LIBRE":
         services.asignar_pendientes(db)
+
+    # Buscar pedidos activos que estén en manos de este repartidor
+    pedidos_activos = db.scalars(
+        select(m.Pedido.id_pedido).where(
+            m.Pedido.id_repartidor == usuario.id_usuario,
+            m.Pedido.estado.in_(services.ESTADOS_ACTIVOS),
+        )
+    ).all()
     db.commit()
+
+    if pedidos_activos:
+        payload = {
+            "evento": "posicion_actualizada",
+            "id_repartidor": usuario.id_usuario,
+            "latitud": float(data.latitud),
+            "longitud": float(data.longitud),
+            "ultima_actualizacion": ahora.isoformat(),
+        }
+        for pid in pedidos_activos:
+            await tracking_manager.broadcast_ubicacion(pid, payload)
+
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

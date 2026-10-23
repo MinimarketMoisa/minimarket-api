@@ -11,7 +11,7 @@ from .security import decode_token, password_fingerprint
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
+def authenticate_token(token: str, db: Session) -> Usuario:
     error = HTTPException(
         status.HTTP_401_UNAUTHORIZED,
         "Token inválido o expirado",
@@ -47,6 +47,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         )
 
     return usuario
+
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Usuario:
+    return authenticate_token(token, db)
 
 
 def require_roles(*roles: str):

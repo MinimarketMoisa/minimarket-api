@@ -1,14 +1,24 @@
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models as m
 from .. import services
-from ..database import get_db
-from ..deps import get_current_user, require_roles
+from ..database import SessionLocal, get_db
+from ..deps import authenticate_token, get_current_user, require_roles
 from ..limiter import limiter
 from ..schemas import (
     DenunciaIn,
@@ -20,8 +30,10 @@ from ..schemas import (
     PedidoIn,
     PedidoOut,
     ResolverDenunciaIn,
+    SeguimientoPedidoOut,
 )
 from ..services.email import enviar_factura_pedido
+from ..services.tracking import tracking_manager
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 
@@ -120,8 +132,71 @@ def detalle_pedido(id_pedido: int, usuario: m.Usuario = Depends(get_current_user
     return services.pedido_a_out(_obtener(db, id_pedido, usuario))
 
 
+@router.get("/{id_pedido}/seguimiento", response_model=SeguimientoPedidoOut)
+def obtener_seguimiento(
+    id_pedido: int,
+    usuario: m.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    (Web y Móvil) Obtiene los datos geográficos y de seguimiento de un pedido:
+    - Coordenadas y datos de la sucursal de origen.
+    - Coordenadas y dirección de entrega del cliente.
+    - Coordenadas en vivo y contacto del repartidor asignado.
+    Ideal para dibujar la ruta y los marcadores iniciales en Google Maps / Mapbox / Leaflet.
+    """
+    pedido = _obtener(db, id_pedido, usuario)
+    return services.seguimiento_pedido_out(pedido, db)
+
+
+@router.websocket("/{id_pedido}/ws/seguimiento")
+@router.websocket("/{id_pedido}/ws")
+async def ws_seguimiento(
+    websocket: WebSocket,
+    id_pedido: int,
+    token: Optional[str] = Query(None),
+):
+    """
+    WebSocket en tiempo real para seguimiento del pedido.
+    Se conecta pasando el token JWT en el query string:
+    wss://minimarket-api.duckdns.org/pedidos/{id_pedido}/ws/seguimiento?token=<JWT_TOKEN>
+    """
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token requerido")
+        return
+
+    with SessionLocal() as db:
+        try:
+            usuario = authenticate_token(token, db)
+        except Exception:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Token inválido o expirado")
+            return
+
+        pedido = db.get(m.Pedido, id_pedido)
+        if pedido is None or not services.puede_ver_pedido(db, usuario, pedido):
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Pedido no encontrado o sin permisos")
+            return
+
+        estado_inicial = services.seguimiento_pedido_out(pedido, db).model_dump(mode="json")
+
+    await tracking_manager.connect(id_pedido, websocket)
+    try:
+        await websocket.send_json({
+            "evento": "estado_inicial",
+            "datos": estado_inicial,
+        })
+        while True:
+            msg = await websocket.receive_text()
+            if msg == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        tracking_manager.disconnect(id_pedido, websocket)
+    except Exception:
+        tracking_manager.disconnect(id_pedido, websocket)
+
+
 @router.patch("/{id_pedido}/estado", response_model=PedidoOut)
-def cambiar_estado(
+async def cambiar_estado(
     id_pedido: int,
     data: EstadoIn,
     background_tasks: BackgroundTasks,
@@ -130,6 +205,16 @@ def cambiar_estado(
 ):
     pedido = _obtener(db, id_pedido, usuario)
     pedido_actualizado = services.cambiar_estado(db, pedido, data.estado, usuario)
+    # Notificar via WebSocket a quien esté viendo el pedido en vivo
+    await tracking_manager.broadcast_ubicacion(
+        id_pedido,
+        {
+            "evento": "estado_pedido_actualizado",
+            "id_pedido": id_pedido,
+            "estado": pedido_actualizado.estado,
+            "estado_repartidor": getattr(pedido_actualizado, "estado_repartidor", None),
+        },
+    )
     # Si fue entregado, enviar confirmación final de entrega / ticket
     if data.estado == "ENTREGADO":
         cliente = db.get(m.Usuario, pedido_actualizado.id_cliente)

@@ -720,6 +720,83 @@ def test_reusar_token_cambio_correo_devuelve_400():
         db.commit()
 
 
+def test_seguimiento_en_tiempo_real_rest_y_ws():
+    cli_token = get_token("cliente@minimarket.test")
+    rep_token = get_token("repartidor1@minimarket.test")
+    admin_token = get_token("admin@minimarket.test")
+
+    # Obtener un pedido a domicilio existente del cliente
+    with SessionLocal() as db:
+        cli_u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+        dir_cli = db.scalar(select(m.Direccion).where(m.Direccion.id_cliente == cli_u.id_usuario))
+        if not dir_cli:
+            dir_cli = m.Direccion(
+                id_cliente=cli_u.id_usuario,
+                id_municipio=1,
+                detalle_direccion="Casa de prueba",
+                latitud=Decimal("13.700000"),
+                longitud=Decimal("-89.200000"),
+            )
+            db.add(dir_cli)
+            db.flush()
+
+        p = db.scalar(
+            select(m.Pedido)
+            .where(
+                m.Pedido.id_cliente == cli_u.id_usuario,
+                m.Pedido.tipo_entrega == "DOMICILIO",
+            )
+        )
+        rep_u = db.scalar(select(m.Usuario).where(m.Usuario.email == "repartidor1@minimarket.test"))
+        if not p:
+            p = db.scalar(select(m.Pedido).where(m.Pedido.id_cliente == cli_u.id_usuario))
+            p.tipo_entrega = "DOMICILIO"
+            p.id_direccion = dir_cli.id_direccion
+            p.costo_envio = Decimal("2.50")
+
+        p.id_repartidor = rep_u.id_usuario
+        p.estado = "EN_RUTA"
+        id_pedido = p.id_pedido
+        db.commit()
+
+    # 1. El cliente consulta el seguimiento de su pedido por REST
+    res_seg = client.get(f"/pedidos/{id_pedido}/seguimiento", headers=auth_headers(cli_token))
+    assert res_seg.status_code == 200, f"Error al consultar seguimiento: {res_seg.text}"
+    seg_data = res_seg.json()
+    assert seg_data["id_pedido"] == id_pedido
+    assert "sucursal" in seg_data
+    assert "destino" in seg_data
+    assert "repartidor" in seg_data
+    assert seg_data["repartidor"]["id_repartidor"] == rep_u.id_usuario
+
+    # 2. El repartidor actualiza su ubicación GPS
+    nueva_lat = 13.698765
+    nueva_lon = -89.215432
+    res_ubic = client.patch(
+        "/repartidor/ubicacion",
+        headers=auth_headers(rep_token),
+        json={"latitud": nueva_lat, "longitud": nueva_lon},
+    )
+    assert res_ubic.status_code == 204
+
+    # 3. Al re-consultar seguimiento REST, la ubicación del repartidor refleja las nuevas coordenadas
+    res_seg2 = client.get(f"/pedidos/{id_pedido}/seguimiento", headers=auth_headers(cli_token))
+    assert res_seg2.status_code == 200
+    assert float(res_seg2.json()["repartidor"]["latitud"]) == round(nueva_lat, 6)
+    assert float(res_seg2.json()["repartidor"]["longitud"]) == round(nueva_lon, 6)
+
+    # 4. Prueba de conexión WebSocket en vivo
+    with client.websocket_connect(f"/pedidos/{id_pedido}/ws/seguimiento?token={cli_token}") as ws:
+        msg_inicial = ws.receive_json()
+        assert msg_inicial["evento"] == "estado_inicial"
+        assert msg_inicial["datos"]["id_pedido"] == id_pedido
+
+        # Test keepalive ping/pong
+        ws.send_text("ping")
+        resp_ping = ws.receive_text()
+        assert resp_ping == "pong"
+
+
 if __name__ == "__main__":
     print("Ejecutando pruebas E2E y de seguridad...")
     limpiar_usuarios_test()
@@ -755,4 +832,6 @@ if __name__ == "__main__":
     print("  [OK] Flujo completo: 'Olvide mi contrasena' con revocacion y uso unico")
     test_slowapi_rate_limiter()
     print("  [OK] SlowAPI: Rate limiting activo contra ataques de denegacion de servicio")
+    test_seguimiento_en_tiempo_real_rest_y_ws()
+    print("  [OK] Tracking en tiempo real: REST, WebSocket y retransmision de coordenadas del repartidor")
     print("\nTODAS LAS PRUEBAS E2E Y DE SEGURIDAD PASARON EXITOSAMENTE!")

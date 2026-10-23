@@ -180,6 +180,8 @@ class DireccionIn(BaseModel):
     id_municipio: int
     detalle_direccion: str = Field(min_length=3, max_length=300)
     punto_referencia: Optional[str] = Field(default=None, max_length=300)
+    latitud: Optional[Decimal] = Field(default=None, ge=-90, le=90)
+    longitud: Optional[Decimal] = Field(default=None, ge=-180, le=180)
 
 
 class DireccionOut(ORM):
@@ -187,6 +189,8 @@ class DireccionOut(ORM):
     id_municipio: int
     detalle_direccion: str
     punto_referencia: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
 
 
 # ---- Pedidos ----
@@ -271,6 +275,8 @@ class DestinoEntregaOut(BaseModel):
     detalle_direccion: str
     punto_referencia: Optional[str] = None
     municipio: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
 
 
 class SucursalEntregaOut(BaseModel):
@@ -303,6 +309,45 @@ class RechazoRepartidorOut(BaseModel):
     reasignado: bool
     nuevo_repartidor_id: Optional[int] = None
     pedido: Optional[PedidoParaRepartidorOut] = None
+
+
+# ---- Seguimiento y Tracking en Vivo ----
+class SucursalSeguimientoOut(BaseModel):
+    id_sucursal: int
+    nombre: str
+    direccion: str
+    telefono: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
+
+
+class DestinoSeguimientoOut(BaseModel):
+    id_direccion: Optional[int] = None
+    detalle_direccion: str
+    punto_referencia: Optional[str] = None
+    municipio: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
+
+
+class RepartidorSeguimientoOut(BaseModel):
+    id_repartidor: int
+    nombre: str
+    telefono: Optional[str] = None
+    latitud: Optional[Num] = None
+    longitud: Optional[Num] = None
+    ultima_actualizacion: Optional[datetime] = None
+
+
+class SeguimientoPedidoOut(BaseModel):
+    id_pedido: int
+    estado: str
+    estado_repartidor: Optional[str] = None
+    tipo_entrega: str
+    canal: str
+    sucursal: SucursalSeguimientoOut
+    destino: Optional[DestinoSeguimientoOut] = None
+    repartidor: Optional[RepartidorSeguimientoOut] = None
 
 
 # ---- Inventario ----
