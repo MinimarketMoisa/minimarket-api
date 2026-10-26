@@ -25,7 +25,14 @@ SECRET_KEY = 'django-insecure-n*496*6v$6yjg27e7ad0f#%ig2o884azhxf8d@l=09l!fvs!#(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://minimarket-api.duckdns.org',
+    'http://minimarket-api.duckdns.org:8080',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+]
 
 
 # Application definition
