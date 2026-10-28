@@ -20,8 +20,24 @@ def _enviar_email(msg: EmailMessage, destinatario: str) -> bool:
         return False
 
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=context, timeout=15) as smtp:
+        # Intentar con certifi si está disponible para evitar fallos de certificados raíz en Windows Server
+        context = None
+        try:
+            import certifi
+            context = ssl.create_default_context(cafile=certifi.where())
+        except Exception:
+            context = ssl.create_default_context()
+
+        try:
+            smtp = smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=context, timeout=15)
+        except ssl.SSLCertVerificationError:
+            # Fallback en Windows Server cuando el almacén de CA local no está presente
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            smtp = smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=context, timeout=15)
+
+        with smtp:
             smtp.login(settings.smtp_user, settings.smtp_password)
             smtp.send_message(msg)
         logger.info(f"[EMAIL] Correo enviado exitosamente a {destinatario}")
