@@ -8,7 +8,7 @@ Uso:
 import time
 import threading
 from decimal import Decimal
-import requests
+import httpx
 from sqlalchemy import select
 from app import models as m
 from app import security
@@ -18,7 +18,7 @@ API_URL = "http://localhost:8000"
 
 
 def obtener_token(email: str, password: str = "Prueba12345") -> str:
-    res = requests.post(
+    res = httpx.post(
         f"{API_URL}/auth/login",
         data={"username": email, "password": password},
     )
@@ -42,7 +42,7 @@ def simular_movimiento_repartidor(rep_token: str, id_pedido: int):
     print("\n[REPARTIDOR GPS] Iniciando transmisión de ruta en vivo...")
     for i, (lat, lon) in enumerate(ruta, start=1):
         time.sleep(2)
-        res = requests.patch(
+        res = httpx.patch(
             f"{API_URL}/repartidor/ubicacion",
             headers={"Authorization": f"Bearer {rep_token}"},
             json={"latitud": lat, "longitud": lon},
@@ -86,7 +86,7 @@ def main():
     rep_token = obtener_token("repartidor1@minimarket.test")
 
     # 3. Consulta REST de seguimiento inicial del cliente
-    res_seg = requests.get(
+    res_seg = httpx.get(
         f"{API_URL}/pedidos/{id_pedido}/seguimiento",
         headers={"Authorization": f"Bearer {cli_token}"},
     )
