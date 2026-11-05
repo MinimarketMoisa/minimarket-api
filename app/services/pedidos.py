@@ -1,5 +1,7 @@
 """Reglas de negocio: eleccion de sucursal, asignacion de repartidor y estados."""
 import math
+import secrets
+import time
 from decimal import Decimal
 from typing import Optional
 
@@ -63,7 +65,19 @@ def puede_ver_pedido(db: Session, usuario: m.Usuario, pedido: m.Pedido) -> bool:
     return puede_gestionar_sucursal(db, usuario, pedido.id_sucursal)
 
 
-def pedido_a_out(p: m.Pedido) -> PedidoOut:
+def generar_codigo_pedido(db: Session) -> str:
+    """Genera un código único de pedido de cara al cliente y negocio (ej. PED-A7K92M)."""
+    caracteres = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"
+    for _ in range(15):
+        sufijo = "".join(secrets.choice(caracteres) for _ in range(6))
+        codigo = f"PED-{sufijo}"
+        existe = db.scalar(select(m.Pedido.id_pedido).where(m.Pedido.codigo_pedido == codigo))
+        if not existe:
+            return codigo
+    return f"PED-{int(time.time())}"
+
+
+def pedido_a_out(p: m.Pedido, rol_solicitante: Optional[str] = None) -> PedidoOut:
     detalles = [
         DetalleOut(
             id_producto=d.id_producto,
@@ -89,11 +103,15 @@ def pedido_a_out(p: m.Pedido) -> PedidoOut:
                     nombre_repartidor = rep.nombre_completo
                     telefono_repartidor = rep.telefono
 
+    # Ocultar id_repartidor si quien consulta es un CLIENTE por privacidad
+    id_rep = None if rol_solicitante == "CLIENTE" else p.id_repartidor
+
     return PedidoOut(
         id_pedido=p.id_pedido,
+        codigo_pedido=p.codigo_pedido,
         id_cliente=p.id_cliente,
         id_sucursal=p.id_sucursal,
-        id_repartidor=p.id_repartidor,
+        id_repartidor=id_rep,
         nombre_repartidor=nombre_repartidor,
         telefono_repartidor=telefono_repartidor,
         id_direccion=p.id_direccion,
@@ -158,6 +176,7 @@ def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidor
 
     return PedidoParaRepartidorOut(
         id_pedido=p.id_pedido,
+        codigo_pedido=p.codigo_pedido,
         estado=p.estado,
         estado_repartidor=getattr(p, "estado_repartidor", None),
         canal=p.canal,
@@ -173,12 +192,14 @@ def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidor
     )
 
 
-def seguimiento_pedido_out(p: m.Pedido, db: Session) -> SeguimientoPedidoOut:
+def seguimiento_pedido_out(
+    p: m.Pedido, db: Session, rol_solicitante: Optional[str] = None
+) -> SeguimientoPedidoOut:
     """
     Construye la información geográfica y de estado en tiempo real para el cliente o empleado:
     - Coordenadas y datos de la sucursal de origen.
     - Coordenadas y dirección de entrega del cliente.
-    - Coordenadas en vivo y contacto del repartidor asignado.
+    - Coordenadas en vivo y contacto del repartidor asignado (ocultando id_repartidor al cliente).
     """
     sucursal = db.get(m.Sucursal, p.id_sucursal)
     sucursal_out = SucursalSeguimientoOut(
@@ -208,8 +229,10 @@ def seguimiento_pedido_out(p: m.Pedido, db: Session) -> SeguimientoPedidoOut:
         rep_user = db.get(m.Usuario, p.id_repartidor)
         rep_perfil = db.get(m.PerfilRepartidor, p.id_repartidor)
         if rep_user:
+            # Ocultar id_repartidor si el solicitante es CLIENTE por privacidad
+            id_rep = None if rol_solicitante == "CLIENTE" else rep_user.id_usuario
             repartidor_out = RepartidorSeguimientoOut(
-                id_repartidor=rep_user.id_usuario,
+                id_repartidor=id_rep,
                 nombre=rep_user.nombre_completo,
                 telefono=rep_user.telefono,
                 latitud=rep_perfil.latitud_actual if rep_perfil else None,
@@ -219,6 +242,7 @@ def seguimiento_pedido_out(p: m.Pedido, db: Session) -> SeguimientoPedidoOut:
 
     return SeguimientoPedidoOut(
         id_pedido=p.id_pedido,
+        codigo_pedido=p.codigo_pedido,
         estado=p.estado,
         estado_repartidor=getattr(p, "estado_repartidor", None),
         tipo_entrega=p.tipo_entrega,
@@ -468,6 +492,7 @@ def crear_pedido(db: Session, cliente: m.Usuario, data: PedidoIn) -> m.Pedido:
         detalles.append(m.DetallePedido(id_producto=pid, cantidad=cant, precio_unitario=precio))
 
     pedido = m.Pedido(
+        codigo_pedido=generar_codigo_pedido(db),
         id_cliente=cliente.id_usuario,
         id_sucursal=elegida.id_sucursal,
         id_direccion=id_direccion,

@@ -767,7 +767,11 @@ def test_seguimiento_en_tiempo_real_rest_y_ws():
     assert "sucursal" in seg_data
     assert "destino" in seg_data
     assert "repartidor" in seg_data
-    assert seg_data["repartidor"]["id_repartidor"] == rep_u.id_usuario
+    assert seg_data["codigo_pedido"] is not None
+    assert seg_data["codigo_pedido"].startswith("PED-")
+    assert seg_data["repartidor"]["id_repartidor"] is None  # Oculto al cliente por privacidad
+    assert seg_data["repartidor"]["nombre"] == rep_u.nombre_completo
+    assert seg_data["repartidor"]["telefono"] == rep_u.telefono
 
     # 2. El repartidor actualiza su ubicación GPS
     nueva_lat = 13.698765

@@ -175,6 +175,7 @@ class Inventario(Base):
 class Pedido(Base):
     __tablename__ = "pedido"
     id_pedido: Mapped[int] = _pk()
+    codigo_pedido: Mapped[Optional[str]] = mapped_column(String(30), unique=True, index=True, nullable=True)
     id_cliente: Mapped[int] = _fk("usuario.id_usuario")
     id_sucursal: Mapped[int] = _fk("sucursal.id_sucursal")
     id_repartidor: Mapped[Optional[int]] = _fk("perfil_repartidor.id_repartidor", nullable=True)

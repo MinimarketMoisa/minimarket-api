@@ -41,6 +41,7 @@ router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 def datos_factura(p: m.Pedido) -> dict:
     return {
         "id_pedido": p.id_pedido,
+        "codigo_pedido": p.codigo_pedido,
         "fecha": p.fecha_creacion,
         "metodo_pago": p.metodo_pago,
         "estado_pago": p.estado_pago,
@@ -85,7 +86,7 @@ def crear_pedido(
         usuario.nombre_completo,
         datos_factura(pedido),
     )
-    return services.pedido_a_out(pedido)
+    return services.pedido_a_out(pedido, usuario.rol.nombre)
 
 
 @router.get("/mis-pedidos", response_model=list[PedidoOut])
@@ -102,7 +103,7 @@ def mis_pedidos(
         .offset(offset)
         .limit(limit)
     ).all()
-    return [services.pedido_a_out(p) for p in pedidos]
+    return [services.pedido_a_out(p, usuario.rol.nombre) for p in pedidos]
 
 
 @router.get("", response_model=list[PedidoOut])
@@ -124,12 +125,25 @@ def listar_pedidos(
     if estado:
         consulta = consulta.where(m.Pedido.estado == estado)
     pedidos = db.scalars(consulta.order_by(m.Pedido.id_pedido.desc()).limit(200)).all()
-    return [services.pedido_a_out(p) for p in pedidos]
+    return [services.pedido_a_out(p, usuario.rol.nombre) for p in pedidos]
+
+
+@router.get("/codigo/{codigo_pedido}", response_model=PedidoOut)
+def buscar_por_codigo(
+    codigo_pedido: str,
+    usuario: m.Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Busca un pedido directamente por su código de negocio (ej. PED-A7K92M)."""
+    pedido = db.scalar(select(m.Pedido).where(m.Pedido.codigo_pedido == codigo_pedido.strip()))
+    if pedido is None or not services.puede_ver_pedido(db, usuario, pedido):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Pedido no encontrado")
+    return services.pedido_a_out(pedido, usuario.rol.nombre)
 
 
 @router.get("/{id_pedido}", response_model=PedidoOut)
 def detalle_pedido(id_pedido: int, usuario: m.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
-    return services.pedido_a_out(_obtener(db, id_pedido, usuario))
+    return services.pedido_a_out(_obtener(db, id_pedido, usuario), usuario.rol.nombre)
 
 
 @router.get("/{id_pedido}/seguimiento", response_model=SeguimientoPedidoOut)
@@ -146,7 +160,7 @@ def obtener_seguimiento(
     Ideal para dibujar la ruta y los marcadores iniciales en Google Maps / Mapbox / Leaflet.
     """
     pedido = _obtener(db, id_pedido, usuario)
-    return services.seguimiento_pedido_out(pedido, db)
+    return services.seguimiento_pedido_out(pedido, db, usuario.rol.nombre)
 
 
 @router.websocket("/{id_pedido}/ws/seguimiento")
@@ -177,7 +191,7 @@ async def ws_seguimiento(
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Pedido no encontrado o sin permisos")
             return
 
-        estado_inicial = services.seguimiento_pedido_out(pedido, db).model_dump(mode="json")
+        estado_inicial = services.seguimiento_pedido_out(pedido, db, usuario.rol.nombre).model_dump(mode="json")
 
     await tracking_manager.connect(id_pedido, websocket)
     try:
@@ -225,7 +239,7 @@ async def cambiar_estado(
                 cliente.nombre_completo,
                 datos_factura(pedido_actualizado),
             )
-    return services.pedido_a_out(pedido_actualizado)
+    return services.pedido_a_out(pedido_actualizado, usuario.rol.nombre)
 
 
 @router.patch("/{id_pedido}/pago", response_model=PedidoOut)
@@ -237,7 +251,7 @@ def actualizar_pago(
     pedido = _obtener(db, id_pedido, usuario)
     pedido.estado_pago = data.estado_pago
     db.commit()
-    return services.pedido_a_out(pedido)
+    return services.pedido_a_out(pedido, usuario.rol.nombre)
 
 
 @router.post("/{id_pedido}/asignar-repartidor", response_model=PedidoOut)
@@ -249,7 +263,7 @@ def asignar_repartidor(
     if not services.asignar_repartidor(db, pedido):
         raise HTTPException(status.HTTP_409_CONFLICT, "No hay repartidores libres o el pedido ya tiene uno")
     db.commit()
-    return services.pedido_a_out(pedido)
+    return services.pedido_a_out(pedido, usuario.rol.nombre)
 
 
 @router.post("/{id_pedido}/enviar-factura", response_model=MensajeRespuesta)
@@ -339,6 +353,7 @@ def denunciar_repartidor(
     return DenunciaOut(
         id_denuncia=denuncia.id_denuncia,
         id_pedido=denuncia.id_pedido,
+        codigo_pedido=pedido.codigo_pedido,
         id_cliente=denuncia.id_cliente,
         nombre_cliente=usuario.nombre_completo,
         id_repartidor=denuncia.id_repartidor,
@@ -373,6 +388,7 @@ def listar_denuncias(
             DenunciaOut(
                 id_denuncia=d.id_denuncia,
                 id_pedido=d.id_pedido,
+                codigo_pedido=d.pedido.codigo_pedido if d.pedido else None,
                 id_cliente=d.id_cliente,
                 nombre_cliente=d.cliente.nombre_completo if d.cliente else "Desconocido",
                 id_repartidor=d.id_repartidor,
@@ -408,6 +424,7 @@ def resolver_denuncia(
     return DenunciaOut(
         id_denuncia=denuncia.id_denuncia,
         id_pedido=denuncia.id_pedido,
+        codigo_pedido=denuncia.pedido.codigo_pedido if denuncia.pedido else None,
         id_cliente=denuncia.id_cliente,
         nombre_cliente=denuncia.cliente.nombre_completo if denuncia.cliente else "Desconocido",
         id_repartidor=denuncia.id_repartidor,

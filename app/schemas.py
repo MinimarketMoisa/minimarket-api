@@ -218,6 +218,7 @@ class DetalleOut(BaseModel):
 
 class PedidoOut(BaseModel):
     id_pedido: int
+    codigo_pedido: Optional[str] = None
     id_cliente: int
     id_sucursal: int
     id_repartidor: Optional[int] = None
@@ -290,6 +291,7 @@ class SucursalEntregaOut(BaseModel):
 
 class PedidoParaRepartidorOut(BaseModel):
     id_pedido: int
+    codigo_pedido: Optional[str] = None
     estado: str
     estado_repartidor: Optional[str] = None
     canal: str
@@ -331,7 +333,7 @@ class DestinoSeguimientoOut(BaseModel):
 
 
 class RepartidorSeguimientoOut(BaseModel):
-    id_repartidor: int
+    id_repartidor: Optional[int] = None
     nombre: str
     telefono: Optional[str] = None
     latitud: Optional[Num] = None
@@ -341,6 +343,7 @@ class RepartidorSeguimientoOut(BaseModel):
 
 class SeguimientoPedidoOut(BaseModel):
     id_pedido: int
+    codigo_pedido: Optional[str] = None
     estado: str
     estado_repartidor: Optional[str] = None
     tipo_entrega: str
@@ -452,6 +455,7 @@ class DenunciaIn(BaseModel):
 class DenunciaOut(BaseModel):
     id_denuncia: int
     id_pedido: int
+    codigo_pedido: Optional[str] = None
     id_cliente: int
     nombre_cliente: str
     id_repartidor: int
