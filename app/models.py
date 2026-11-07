@@ -187,6 +187,7 @@ class Pedido(Base):
     tipo_entrega: Mapped[str] = mapped_column(String(20))
     metodo_pago: Mapped[str] = mapped_column(String(20))
     estado_pago: Mapped[str] = mapped_column(String(20), default="PENDIENTE", server_default=text("'PENDIENTE'"))
+    referencia_pago: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     costo_envio: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=Decimal("0"), server_default=text("0"))
     total: Mapped[Decimal] = mapped_column(Numeric(10, 2))
 
@@ -210,7 +211,7 @@ class Pedido(Base):
             name="ck_pedido_estado",
         ),
         CheckConstraint("tipo_entrega IN ('DOMICILIO', 'RETIRO')", name="ck_pedido_tipo_entrega"),
-        CheckConstraint("metodo_pago IN ('CONTRA_ENTREGA', 'TRANSFERENCIA')", name="ck_pedido_metodo_pago"),
+        CheckConstraint("metodo_pago IN ('CONTRA_ENTREGA', 'TRANSFERENCIA', 'TARJETA')", name="ck_pedido_metodo_pago"),
         CheckConstraint("estado_pago IN ('PENDIENTE', 'PAGADO')", name="ck_pedido_estado_pago"),
         CheckConstraint("costo_envio >= 0", name="ck_pedido_costo_envio"),
         CheckConstraint("total >= 0", name="ck_pedido_total"),

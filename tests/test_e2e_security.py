@@ -801,6 +801,97 @@ def test_seguimiento_en_tiempo_real_rest_y_ws():
         assert resp_ping == "pong"
 
 
+def test_wompi_sandbox_simulador_pagos():
+    cli_token = get_token("cliente@minimarket.test")
+
+    # 1. Consultar catálogo de tarjetas de prueba
+    res_tarjetas = client.get("/pagos/wompi/tarjetas-prueba")
+    assert res_tarjetas.status_code == 200
+    tarjetas = res_tarjetas.json()
+    assert len(tarjetas) >= 4
+    assert any(t["tipo"] == "APROBADA" for t in tarjetas)
+    assert any(t["tipo"] == "FONDOS_INSUFICIENTES" for t in tarjetas)
+
+    # 2. Preparar un pedido para pago
+    with SessionLocal() as db:
+        cli_u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+        p = db.scalar(select(m.Pedido).where(m.Pedido.id_cliente == cli_u.id_usuario))
+        p.estado = "PENDIENTE"
+        p.estado_pago = "PENDIENTE"
+        p.metodo_pago = "CONTRA_ENTREGA"
+        p.referencia_pago = None
+        id_pedido = p.id_pedido
+        db.commit()
+
+    # 3. Intentar pagar con tarjeta con Fondos Insuficientes (termina en 0002)
+    res_declinada = client.post(
+        "/pagos/wompi/simular",
+        headers=auth_headers(cli_token),
+        json={
+            "id_pedido": id_pedido,
+            "numero_tarjeta": "4000 0000 0000 0002",
+            "nombre_titular": "Juan Perez",
+            "mes_expiracion": "12",
+            "anio_expiracion": "2028",
+            "cvv": "123",
+        },
+    )
+    assert res_declinada.status_code == 200
+    data_dec = res_declinada.json()
+    assert data_dec["estado_transaccion"] == "DECLINADA"
+    assert data_dec["codigo_respuesta"] == "FONDOS_INSUFICIENTES"
+
+    # Verificar que el pedido NO cambió a PAGADO
+    with SessionLocal() as db:
+        p_check = db.get(m.Pedido, id_pedido)
+        assert p_check.estado_pago == "PENDIENTE"
+
+    # 4. Pagar exitosamente con tarjeta Aprobada (4242 4242 4242 4242)
+    res_aprobada = client.post(
+        "/pagos/wompi/simular",
+        headers=auth_headers(cli_token),
+        json={
+            "id_pedido": id_pedido,
+            "numero_tarjeta": "4242 4242 4242 4242",
+            "nombre_titular": "Juan Perez",
+            "mes_expiracion": "12",
+            "anio_expiracion": "2028",
+            "cvv": "123",
+        },
+    )
+    assert res_aprobada.status_code == 200
+    data_apr = res_aprobada.json()
+    assert data_apr["estado_transaccion"] == "APROBADA"
+    assert data_apr["codigo_respuesta"] == "APROBADA"
+    assert data_apr["id_transaccion"].startswith("WOMPI-SIM-")
+    assert data_apr["marca_tarjeta"] == "VISA"
+    assert data_apr["ultimos_cuatro"] == "4242"
+    assert data_apr["recibo_enviado_email"] is True
+
+    # Verificar que el pedido en BD ahora está PAGADO con TARJETA
+    with SessionLocal() as db:
+        p_pagado = db.get(m.Pedido, id_pedido)
+        assert p_pagado.estado_pago == "PAGADO"
+        assert p_pagado.metodo_pago == "TARJETA"
+        assert p_pagado.referencia_pago == data_apr["id_transaccion"]
+
+    # 5. Intentar pagar de nuevo el mismo pedido ya pagado -> 409 Conflict
+    res_repetida = client.post(
+        "/pagos/wompi/simular",
+        headers=auth_headers(cli_token),
+        json={
+            "id_pedido": id_pedido,
+            "numero_tarjeta": "4242 4242 4242 4242",
+            "nombre_titular": "Juan Perez",
+            "mes_expiracion": "12",
+            "anio_expiracion": "2028",
+            "cvv": "123",
+        },
+    )
+    assert res_repetida.status_code == 409
+    assert "ya se encuentra pagado" in res_repetida.json()["detail"].lower()
+
+
 if __name__ == "__main__":
     print("Ejecutando pruebas E2E y de seguridad...")
     limpiar_usuarios_test()
@@ -838,4 +929,6 @@ if __name__ == "__main__":
     print("  [OK] SlowAPI: Rate limiting activo contra ataques de denegacion de servicio")
     test_seguimiento_en_tiempo_real_rest_y_ws()
     print("  [OK] Tracking en tiempo real: REST, WebSocket y retransmision de coordenadas del repartidor")
+    test_wompi_sandbox_simulador_pagos()
+    print("  [OK] Wompi Sandbox: Simulador completo de cobro con tarjeta, aprobaciones, rechazos y webhook/email")
     print("\nTODAS LAS PRUEBAS E2E Y DE SEGURIDAD PASARON EXITOSAMENTE!")

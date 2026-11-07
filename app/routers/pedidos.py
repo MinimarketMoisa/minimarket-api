@@ -37,26 +37,7 @@ from ..services.tracking import tracking_manager
 
 router = APIRouter(prefix="/pedidos", tags=["Pedidos"])
 
-
-def datos_factura(p: m.Pedido) -> dict:
-    return {
-        "id_pedido": p.id_pedido,
-        "codigo_pedido": p.codigo_pedido,
-        "fecha": p.fecha_creacion,
-        "metodo_pago": p.metodo_pago,
-        "estado_pago": p.estado_pago,
-        "tipo_entrega": p.tipo_entrega,
-        "costo_envio": p.costo_envio,
-        "total": p.total,
-        "lineas": [
-            (
-                d.producto.nombre if d.producto else f"Producto #{d.id_producto}",
-                d.cantidad,
-                d.precio_unitario,
-            )
-            for d in p.detalles
-        ],
-    }
+datos_factura = services.datos_factura
 
 
 def _obtener(db: Session, id_pedido: int, usuario: m.Usuario) -> m.Pedido:

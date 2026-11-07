@@ -44,6 +44,27 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return 2 * r * math.asin(math.sqrt(a))
 
 
+def datos_factura(p: m.Pedido) -> dict:
+    return {
+        "id_pedido": p.id_pedido,
+        "codigo_pedido": p.codigo_pedido,
+        "fecha": p.fecha_creacion,
+        "metodo_pago": p.metodo_pago,
+        "estado_pago": p.estado_pago,
+        "tipo_entrega": p.tipo_entrega,
+        "costo_envio": p.costo_envio,
+        "total": p.total,
+        "lineas": [
+            (
+                d.producto.nombre if d.producto else f"Producto #{d.id_producto}",
+                d.cantidad,
+                d.precio_unitario,
+            )
+            for d in p.detalles
+        ],
+    }
+
+
 def puede_gestionar_sucursal(db: Session, usuario: m.Usuario, id_sucursal: int) -> bool:
     rol = usuario.rol.nombre
     if rol == "ADMIN":
@@ -120,6 +141,7 @@ def pedido_a_out(p: m.Pedido, rol_solicitante: Optional[str] = None) -> PedidoOu
         metodo_pago=p.metodo_pago,
         estado=p.estado,
         estado_pago=p.estado_pago,
+        referencia_pago=getattr(p, "referencia_pago", None),
         estado_repartidor=getattr(p, "estado_repartidor", None),
         costo_envio=p.costo_envio,
         total=p.total,
@@ -182,6 +204,7 @@ def pedido_para_repartidor_out(p: m.Pedido, db: Session) -> PedidoParaRepartidor
         canal=p.canal,
         metodo_pago=p.metodo_pago,
         estado_pago=p.estado_pago,
+        referencia_pago=getattr(p, "referencia_pago", None),
         costo_envio=p.costo_envio,
         total=p.total,
         fecha_creacion=p.fecha_creacion,

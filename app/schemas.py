@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, PlainSerializer, fi
 Num = Annotated[Decimal, PlainSerializer(float, return_type=float, when_used="json")]
 
 TipoEntrega = Literal["DOMICILIO", "RETIRO"]
-MetodoPago = Literal["CONTRA_ENTREGA", "TRANSFERENCIA"]
+MetodoPago = Literal["CONTRA_ENTREGA", "TRANSFERENCIA", "TARJETA"]
 Canal = Literal["APP", "WEB"]
 EstadoPedido = Literal["PENDIENTE", "PREPARADO", "EN_RUTA", "ENTREGADO", "CANCELADO"]
 EstadoPago = Literal["PENDIENTE", "PAGADO"]
@@ -230,6 +230,7 @@ class PedidoOut(BaseModel):
     metodo_pago: str
     estado: str
     estado_pago: str
+    referencia_pago: Optional[str] = None
     estado_repartidor: Optional[str] = None
     costo_envio: Num
     total: Num
@@ -303,6 +304,7 @@ class PedidoParaRepartidorOut(BaseModel):
     canal: str
     metodo_pago: str
     estado_pago: str
+    referencia_pago: Optional[str] = None
     costo_envio: Num
     total: Num
     fecha_creacion: Optional[datetime] = None
@@ -531,3 +533,43 @@ class ReporteMensualOut(BaseModel):
     ventas_por_sucursal: list[ResumenSucursalOut]
     rendimiento_repartidores: list[RendimientoRepartidorOut]
     top_productos_mes: list[TopProductoOut]
+
+
+# ---- Pagos / Wompi Sandbox ----
+class TarjetaPruebaOut(BaseModel):
+    tipo: str
+    numero: str
+    nombre_titular: str
+    mes: str
+    anio: str
+    cvv: str
+    resultado: str
+    descripcion: str
+
+
+class PagoWompiIn(BaseModel):
+    id_pedido: int
+    numero_tarjeta: str = Field(..., min_length=13, max_length=22, description="Número de tarjeta de crédito/débito")
+    nombre_titular: str = Field(..., min_length=2, max_length=100, description="Nombre como figura en el plástico")
+    mes_expiracion: str = Field(..., min_length=1, max_length=2, description="Mes de expiración (1-12 o 01-12)")
+    anio_expiracion: str = Field(..., min_length=2, max_length=4, description="Año de expiración (ej: 28 o 2028)")
+    cvv: str = Field(..., min_length=3, max_length=4, description="Código de seguridad (3 o 4 dígitos)")
+    email_pagador: Optional[str] = Field(None, description="Correo para enviar la confirmación/factura (opcional)")
+
+
+class PagoWompiOut(BaseModel):
+    id_transaccion: str
+    id_pedido: int
+    codigo_pedido: Optional[str] = None
+    estado_transaccion: str  # "APROBADA", "DECLINADA", "ERROR_DATOS"
+    codigo_respuesta: str    # "APROBADA", "FONDOS_INSUFICIENTES", "DECLINADA_POR_BANCO", "TARJETA_EXPIRADA", "DATOS_INVALIDOS"
+    mensaje: str
+    monto: Num
+    moneda: str = "USD"
+    marca_tarjeta: str
+    ultimos_cuatro: str
+    nombre_titular: str
+    fecha_transaccion: datetime
+    referencia_wompi: str
+    recibo_enviado_email: bool
+
