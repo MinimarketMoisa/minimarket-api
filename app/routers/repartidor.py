@@ -181,9 +181,10 @@ async def actualizar_ubicacion(
     if pedidos_activos:
         payload = {
             "evento": "posicion_actualizada",
-            "id_repartidor": usuario.id_usuario,
             "latitud": float(data.latitud),
             "longitud": float(data.longitud),
+            "rumbo": float(data.rumbo) if data.rumbo is not None else None,
+            "velocidad": float(data.velocidad) if data.velocidad is not None else None,
             "ultima_actualizacion": ahora.isoformat(),
         }
         for pid in pedidos_activos:

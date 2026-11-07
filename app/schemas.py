@@ -249,6 +249,12 @@ class PagoIn(BaseModel):
 class UbicacionIn(BaseModel):
     latitud: float = Field(ge=-90, le=90)
     longitud: float = Field(ge=-180, le=180)
+    rumbo: Optional[float] = Field(
+        default=None, ge=0, le=360, description="Rumbo u orientación en grados (0-360) para rotar el icono de la moto/vehículo"
+    )
+    velocidad: Optional[float] = Field(
+        default=None, ge=0, description="Velocidad reportada por el sensor GPS (m/s o km/h)"
+    )
 
 
 class RepartidorEstadoIn(BaseModel):
