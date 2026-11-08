@@ -1,5 +1,6 @@
 import secrets
 from decimal import Decimal
+from typing import Any
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,7 +15,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     costo_envio: Decimal = Decimal("1.50")
-    cors_origins: list[str] = ["*"]
+    cors_origins: Any = ["*"]
 
     # Password reset
     password_reset_token_expire_minutes: int = 30
@@ -36,15 +37,11 @@ class Settings(BaseSettings):
     def _parse_cors(cls, v):
         if isinstance(v, str):
             v = v.strip()
-            if not v:
+            if not v or v == "*":
                 return ["*"]
             if v.startswith("[") and v.endswith("]"):
-                import json
-                try:
-                    return json.loads(v)
-                except Exception:
-                    pass
-            return [x.strip() for x in v.split(",") if x.strip()]
+                v = v[1:-1].strip()
+            return [x.strip().strip("'\"") for x in v.split(",") if x.strip().strip("'\"")]
         return v or ["*"]
 
     @model_validator(mode="after")
