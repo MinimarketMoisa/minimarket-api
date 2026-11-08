@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
     costo_envio: Decimal = Decimal("1.50")
-    cors_origins: list[str] = []
+    cors_origins: list[str] = ["*"]
 
     # Password reset
     password_reset_token_expire_minutes: int = 30
@@ -37,7 +37,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             v = v.strip()
             if not v:
-                return []
+                return ["*"]
             if v.startswith("[") and v.endswith("]"):
                 import json
                 try:
@@ -45,7 +45,7 @@ class Settings(BaseSettings):
                 except Exception:
                     pass
             return [x.strip() for x in v.split(",") if x.strip()]
-        return v or []
+        return v or ["*"]
 
     @model_validator(mode="after")
     def _validar(self):

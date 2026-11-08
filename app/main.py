@@ -34,7 +34,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-origins = settings.cors_origins if settings.cors_origins else (["*"] if not is_prod else [])
+origins = settings.cors_origins if settings.cors_origins else ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
