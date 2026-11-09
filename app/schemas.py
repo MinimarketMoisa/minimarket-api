@@ -545,6 +545,9 @@ class TarjetaPruebaOut(BaseModel):
     cvv: str
     resultado: str
     descripcion: str
+    franquicia: str = "VISA"
+    tipo_tarjeta: str = "CREDITO"
+    saldo_disponible: Num = Decimal("0.00")
 
 
 class PagoWompiIn(BaseModel):

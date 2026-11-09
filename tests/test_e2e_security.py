@@ -804,13 +804,18 @@ def test_seguimiento_en_tiempo_real_rest_y_ws():
 def test_wompi_sandbox_simulador_pagos():
     cli_token = get_token("cliente@minimarket.test")
 
-    # 1. Consultar catálogo de tarjetas de prueba
+    # 1. Consultar catálogo de 10 tarjetas de prueba oficiales
     res_tarjetas = client.get("/pagos/wompi/tarjetas-prueba")
     assert res_tarjetas.status_code == 200
     tarjetas = res_tarjetas.json()
-    assert len(tarjetas) >= 4
+    assert len(tarjetas) == 10
+    assert sum(1 for t in tarjetas if t["franquicia"] == "VISA") == 8
+    assert sum(1 for t in tarjetas if t["franquicia"] == "MASTERCARD") == 2
     assert any(t["tipo"] == "APROBADA" for t in tarjetas)
     assert any(t["tipo"] == "FONDOS_INSUFICIENTES" for t in tarjetas)
+    assert any(t["tipo"] == "DECLINADA_POR_BANCO" for t in tarjetas)
+    # Verificar que todas tienen saldo_disponible numérico
+    assert all("saldo_disponible" in t for t in tarjetas)
 
     # 2. Preparar un pedido para pago
     with SessionLocal() as db:
@@ -823,7 +828,41 @@ def test_wompi_sandbox_simulador_pagos():
         id_pedido = p.id_pedido
         db.commit()
 
-    # 3. Intentar pagar con tarjeta con Fondos Insuficientes (termina en 0002)
+    # 3. Intentar pagar con tarjeta inventada / NO autorizada -> DECLINADA (TARJETA_NO_AUTORIZADA)
+    res_no_aut = client.post(
+        "/pagos/wompi/simular",
+        headers=auth_headers(cli_token),
+        json={
+            "id_pedido": id_pedido,
+            "numero_tarjeta": "4999 9999 9999 9999",
+            "nombre_titular": "Hacker Test",
+            "mes_expiracion": "12",
+            "anio_expiracion": "2028",
+            "cvv": "123",
+        },
+    )
+    assert res_no_aut.status_code == 200
+    assert res_no_aut.json()["estado_transaccion"] == "DECLINADA"
+    assert res_no_aut.json()["codigo_respuesta"] == "TARJETA_NO_AUTORIZADA"
+
+    # 4. Intentar pagar con tarjeta Bloqueada (5555 5555 5555 4444) -> DECLINADA (DECLINADA_POR_BANCO)
+    res_bloqueada = client.post(
+        "/pagos/wompi/simular",
+        headers=auth_headers(cli_token),
+        json={
+            "id_pedido": id_pedido,
+            "numero_tarjeta": "5555 5555 5555 4444",
+            "nombre_titular": "Roberto Mejia",
+            "mes_expiracion": "12",
+            "anio_expiracion": "2028",
+            "cvv": "741",
+        },
+    )
+    assert res_bloqueada.status_code == 200
+    assert res_bloqueada.json()["estado_transaccion"] == "DECLINADA"
+    assert res_bloqueada.json()["codigo_respuesta"] == "DECLINADA_POR_BANCO"
+
+    # 5. Intentar pagar con tarjeta con Fondos Insuficientes (termina en 0002)
     res_declinada = client.post(
         "/pagos/wompi/simular",
         headers=auth_headers(cli_token),
@@ -890,6 +929,12 @@ def test_wompi_sandbox_simulador_pagos():
     )
     assert res_repetida.status_code == 409
     assert "ya se encuentra pagado" in res_repetida.json()["detail"].lower()
+
+    # 6. Probar endpoint de consulta de estado de verificación
+    res_est = client.get("/auth/estado-verificacion?email=cliente@minimarket.test")
+    assert res_est.status_code == 200
+    assert res_est.json()["email"] == "cliente@minimarket.test"
+    assert res_est.json()["email_verificado"] is True
 
 
 if __name__ == "__main__":

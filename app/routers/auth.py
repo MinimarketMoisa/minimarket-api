@@ -270,6 +270,26 @@ def registro(
     )
 
 
+@router.get("/estado-verificacion")
+@limiter.limit("30/minute")
+def estado_verificacion(
+    request: Request,
+    email: str = Query(..., description="Correo electrónico del usuario a consultar"),
+    db: Session = Depends(get_db),
+):
+    """
+    (Web y Móvil) Permite al cliente frontend consultar si un correo electrónico ya fue verificado.
+    """
+    usuario = db.scalar(select(m.Usuario).where(func.lower(m.Usuario.email) == email.lower().strip()))
+    if usuario is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Usuario no encontrado.")
+    return {
+        "email": usuario.email,
+        "email_verificado": usuario.email_verificado,
+        "activo": usuario.activo,
+    }
+
+
 @router.get("/verificar-correo")
 def verificar_correo_get(
     request: Request,
