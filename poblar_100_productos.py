@@ -13,6 +13,19 @@ from app import models as m
 from app.database import SessionLocal
 
 
+SEED_PRODUCTS_IMAGES = {
+    "Arroz 1 lb": "https://walmartsv.vteximg.com.br/arquivos/ids/894752/M-5_walmartsv_NEDMdLbClp_124672_01.jpg",
+    "Frijoles 1 lb": "https://walmartsv.vteximg.com.br/arquivos/ids/738824/63468_01.jpg",
+    "Aceite 1 L": "https://walmartsv.vteximg.com.br/arquivos/ids/751028/47494_01.jpg",
+    "Jabón de baño": "https://walmartsv.vteximg.com.br/arquivos/ids/865846/jabon-protex-omega-3-3-pack-660-g-0099176922780.webp",
+    "Papel higiénico x4": "https://walmartsv.vteximg.com.br/arquivos/ids/904090/papel-higienico-scott-balance-32-ea-2-p-7441008104988.webp",
+    "Detergente 1 kg": "https://walmartsv.vteximg.com.br/arquivos/ids/885202/M-5_walmartsv_MODVqOzupG_120250_01.jpg",
+    "Cloro 1 galón": "https://walmartsv.vteximg.com.br/arquivos/ids/882994/cloro-great-value-bt-3785-ml-galon-7441078231140.webp",
+    "Escoba": "https://walmartsv.vteximg.com.br/arquivos/ids/921183/M-5_walmartsv_XpbvCIAKTl_51839_01.jpg",
+    "Vasos plásticos x50": "https://walmartsv.vteximg.com.br/arquivos/ids/771059/46419_01.jpg",
+}
+
+
 def D(valor) -> Decimal:
     return Decimal(str(valor))
 
@@ -37,7 +50,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Arroz blanco de grano seleccionado, cocción perfecta. Presentación 2 libras (908g).",
         "codigo_barras": "7411001000018",
         "precio_base": D("1.15"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/uncooked-white-rice.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/894752/M-5_walmartsv_NEDMdLbClp_124672_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -45,7 +58,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Arroz precocido grano entero suelto y esponjoso, rendimiento superior.",
         "codigo_barras": "7411001000025",
         "precio_base": D("1.25"),
-        "imagen_url": "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/708129/41519_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -53,7 +66,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Frijol rojo salvadoreño de seda, grano suave de cocción rápida.",
         "codigo_barras": "7411001000032",
         "precio_base": D("1.45"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/kidney-beans.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/408830/Frijol-Rojo-De-Seda-Sabemas-1816Gr-1-8333.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -61,7 +74,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Frijoles rojos molidos estilo casero listos para servir.",
         "codigo_barras": "7411001000049",
         "precio_base": D("0.95"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/refried-beans.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/738824/63468_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -69,7 +82,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Aceite vegetal 100% puro libre de colesterol, ideal para freír y cocinar.",
         "codigo_barras": "7411001000056",
         "precio_base": D("2.50"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/vegetable-oil.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/733967/50843_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -77,7 +90,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Aceite de oliva virgen extra de primera presión en frío, botella de vidrio.",
         "codigo_barras": "7411001000063",
         "precio_base": D("5.90"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/olive-oil.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/686675/55658_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -85,7 +98,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Azúcar blanca refinada de alta pureza 100% salvadoreña.",
         "codigo_barras": "7411001000070",
         "precio_base": D("1.10"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/sugar-in-bowl.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/809585/azucar-del-canal-blanca-1000-g-7411500000934.webp",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -93,7 +106,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Harina de maíz nixtamalizado para tortillas, pupusas y tamales.",
         "codigo_barras": "7411001000087",
         "precio_base": D("1.20"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/cornmeal.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/511205/63294_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -101,7 +114,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pasta alimenticia clásica enriquecida con vitaminas y minerales.",
         "codigo_barras": "7411001000094",
         "precio_base": D("0.45"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/spaghetti.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/698614/71841_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -109,7 +122,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pasta de sémola de trigo durum en forma de coditos para sopas y ensaladas.",
         "codigo_barras": "7411001000100",
         "precio_base": D("0.45"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/macaroni.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/935605/pasta-fama-coditos-200-g-0097294742631.webp",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -117,7 +130,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Salsa de tomates naturales con cebolla, chile verde y especias.",
         "codigo_barras": "7411001000117",
         "precio_base": D("0.55"),
-        "imagen_url": "https://images.unsplash.com/photo-1597362925123-77861d3fbac7?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/949578/M-5_walmartsv_XdQjxXJiYH_119088_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -125,7 +138,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pasta concentrada de tomate maduro para guisados y carnes.",
         "codigo_barras": "7411001000124",
         "precio_base": D("0.65"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/tomato-paste.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/851672/pasta-de-tomate-campofresco-87-g-7421001653393.webp",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -133,7 +146,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Lomo de atún aleta amarilla en agua, bajo en grasa y rico en proteína.",
         "codigo_barras": "7411001000131",
         "precio_base": D("1.35"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/canned-tuna.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/721350/48221_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -141,7 +154,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Atún claro en aceite vegetal calidad gourmet en lata abre fácil.",
         "codigo_barras": "7411001000148",
         "precio_base": D("1.40"),
-        "imagen_url": "https://images.unsplash.com/photo-1534482421-64566f976cfa?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/721350/48221_01.jpg",
     },
     {
         "categoria": "Abarrotes y Despensa",
@@ -149,7 +162,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Café 100% arábica tostado y molido de estricta altura salvadoreño.",
         "codigo_barras": "7411001000155",
         "precio_base": D("3.25"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/coffee.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/858088/el-manzano-topeca-cafe-molido-340-g-0840186000377.jpg",
     },
 
     # --- 2. BEBIDAS Y REFRESCOS (12) ---
@@ -159,7 +172,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Refresco carbonatado sabor original familiar botella PET no retornable.",
         "codigo_barras": "7411001000162",
         "precio_base": D("2.50"),
-        "imagen_url": "https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/591882/43832_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -167,7 +180,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Gaseosa Coca-Cola sabor original con cero calorías y sin azúcar.",
         "codigo_barras": "7411001000179",
         "precio_base": D("1.60"),
-        "imagen_url": "https://images.unsplash.com/photo-1554866585-cd94860890b7?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/595275/86900_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -175,7 +188,7 @@ PRODUCTOS_DATA = [
         "descripcion": "El sabor salvadoreño único de caña de azúcar en botella de 1.5L.",
         "codigo_barras": "7411001000186",
         "precio_base": D("1.35"),
-        "imagen_url": "https://images.unsplash.com/photo-1624517452488-04869289c4ca?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/405967/Gaseosa-Kolashanpan-Mini-12Pk-2304Ml-1-23930.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -183,7 +196,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Refresco de cola refrescante tamaño familiar botella 2L.",
         "codigo_barras": "7411001000193",
         "precio_base": D("1.75"),
-        "imagen_url": "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/605138/50514_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -191,7 +204,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Refresco carbonatado transparente con sabor natural a lima-limón sin cafeína.",
         "codigo_barras": "7411001000209",
         "precio_base": D("1.30"),
-        "imagen_url": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/578112/45827_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -199,7 +212,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Néctar de manzana pasteurizado fortificado con vitamina C en envase Tetra Pak.",
         "codigo_barras": "7411001000216",
         "precio_base": D("1.25"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/apple-juice.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/748174/53528_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -207,7 +220,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Delicioso néctar con pulpa de melocotón de textura suave.",
         "codigo_barras": "7411001000223",
         "precio_base": D("1.35"),
-        "imagen_url": "https://images.unsplash.com/photo-1534353473418-4cfa6c56fd38?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/682625/53860_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -215,7 +228,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Agua de mesa 100% purificada con ozono y luz ultravioleta.",
         "codigo_barras": "7411001000230",
         "precio_base": D("1.50"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/water.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/960607/M-5_walmartsv_EudflbRMAX_50523_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -223,7 +236,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Botella individual de agua purificada ligera con tapa deportiva.",
         "codigo_barras": "7411001000247",
         "precio_base": D("0.50"),
-        "imagen_url": "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/962876/M-5_walmartsv_TTeoGcxQis_109747_01.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -231,7 +244,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Bebida isotónica con electrolitos sabor mora azul para hidratación activa.",
         "codigo_barras": "7411001000254",
         "precio_base": D("1.20"),
-        "imagen_url": "https://images.unsplash.com/photo-1551024709-8f23befc6f87?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/881180/bebida-gatorade-berry-blue-500-ml-0024474006818.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -239,7 +252,7 @@ PRODUCTOS_DATA = [
         "descripcion": "La cerveza tradicional de El Salvador estilo lager rubia refrescante.",
         "codigo_barras": "7411001000261",
         "precio_base": D("1.15"),
-        "imagen_url": "https://images.unsplash.com/photo-1535958636474-b021ee887b13?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/385740/Cerveza-Pilsener-Lata-355-Ml-1-3640.jpg",
     },
     {
         "categoria": "Bebidas y Refrescos",
@@ -247,7 +260,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Cerveza tipo golden lager suave, ligera y fácil de tomar.",
         "codigo_barras": "7411001000278",
         "precio_base": D("1.10"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/beer.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/963520/M-5_walmartsv_YhJiPFKWiz_126472_01.jpg",
     },
 
     # --- 3. LÁCTEOS Y HUEVOS (12) ---
@@ -257,7 +270,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Leche 100% de vaca entera ultrapasteurizada, fortificada con vitamina A y D.",
         "codigo_barras": "7411001000285",
         "precio_base": D("1.55"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/milk.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/580196/54897_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -265,7 +278,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Leche semidescremada 2% grasa en envase larga vida Tetra Brik.",
         "codigo_barras": "7411001000292",
         "precio_base": D("1.60"),
-        "imagen_url": "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/579437/52914_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -273,7 +286,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Leche entera deslactosada de fácil digestión para personas intolerantes a la lactosa.",
         "codigo_barras": "7411001000308",
         "precio_base": D("1.75"),
-        "imagen_url": "https://images.unsplash.com/photo-1528750997573-59b89d56f4f7?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/330655/Leche-Deslactosada-Marca-Salud-Semidescremada-2-grasa-1892ml-1-33874.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -281,7 +294,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Crema de leche salvadoreña espesa y con sabor tradicional para pupusas o frijoles.",
         "codigo_barras": "7411001000315",
         "precio_base": D("1.65"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/sour-cream.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/873987/crema-san-julian-pura-especial-340-g-0708916010082.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -289,7 +302,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Quesillo tradicional salvadoreño con el punto exacto de hebra para derretir.",
         "codigo_barras": "7411001000322",
         "precio_base": D("3.25"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/mozzarella.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/604623/53955_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -297,7 +310,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Queso duro blando salvadoreño con el sello de calidad inconfundible Petacones.",
         "codigo_barras": "7411001000339",
         "precio_base": D("3.95"),
-        "imagen_url": "https://images.unsplash.com/photo-1452195100486-9cc805987862?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/782180/82438_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -305,7 +318,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Queso crema para untar, suave y cremoso ideal para postres y tostadas.",
         "codigo_barras": "7411001000346",
         "precio_base": D("2.85"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/cream-cheese.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/604509/51105_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -313,7 +326,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Mantequilla de pura crema de leche pasteurizada con sal añadida.",
         "codigo_barras": "7411001000353",
         "precio_base": D("1.15"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/butter-sliced.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/885415/M-5_walmartsv_fOsKqHeyrq_121718_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -321,7 +334,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Margarina clásica con sal enriquecida con vitaminas para repostería y cocina.",
         "codigo_barras": "7411001000360",
         "precio_base": D("0.55"),
-        "imagen_url": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/789940/69880_01.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -329,7 +342,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Yogur bebible con probióticos activos sabor fresa natural.",
         "codigo_barras": "7411001000377",
         "precio_base": D("1.85"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/strawberry-yogurt.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/948550/M-5_walmartsv_EbdmhyGSzz_3746_5.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -337,7 +350,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Huevos frescos medianos de granja controlada en empaque protector de cartón.",
         "codigo_barras": "7411001000384",
         "precio_base": D("4.95"),
-        "imagen_url": "https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/408955/Huevo-Marron-Fresco-Grande-30-Unidades-1-12504.jpg",
     },
     {
         "categoria": "Lácteos y Huevos",
@@ -345,7 +358,7 @@ PRODUCTOS_DATA = [
         "descripcion": "15 huevos frescos seleccionados de cascarón limpio y yema brillante.",
         "codigo_barras": "7411001000391",
         "precio_base": D("2.60"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/egg.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/408974/Huevo-Jumbo-El-Granjero-20unidades-1-25356.jpg",
     },
 
     # --- 4. SNACKS Y GOLOSINAS (12) ---
@@ -355,7 +368,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Snack de maíz horneado con el inconfundible sabor saladito y crujiente Diana.",
         "codigo_barras": "7411001000407",
         "precio_base": D("0.90"),
-        "imagen_url": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/694033/65384_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -363,7 +376,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Palitos de maíz inflado con cobertura de queso y un toque picante salvadoreño.",
         "codigo_barras": "7411001000414",
         "precio_base": D("0.90"),
-        "imagen_url": "https://images.unsplash.com/photo-1621447504864-d8686e12698c?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/694056/45226_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -371,7 +384,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Crujientes hojuelas de maíz con el auténtico y fuerte sabor a chile jalapeño.",
         "codigo_barras": "7411001000421",
         "precio_base": D("0.90"),
-        "imagen_url": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/576465/65385_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -379,7 +392,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Aros de maíz crujiente con abundante sabor a queso cheddar.",
         "codigo_barras": "7411001000438",
         "precio_base": D("0.90"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/tortilla-chips.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/810270/boquitas-diana-quesitos-maiz-queso-125-g-0748757000149.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -387,7 +400,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Palitos de harina de trigo tostados y ligeramente salados, ideales para dip.",
         "codigo_barras": "7411001000445",
         "precio_base": D("0.90"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/pretzels.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/930338/M-5_walmartsv_yYgdgRPAXI_45228_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -395,7 +408,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Tortillas de maíz tostadas con sal marina, textura extra crujiente.",
         "codigo_barras": "7411001000452",
         "precio_base": D("0.85"),
-        "imagen_url": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/694033/65384_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -403,7 +416,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Galletas de sándwich de cacao con crema sabor a vainilla.",
         "codigo_barras": "7411001000469",
         "precio_base": D("1.35"),
-        "imagen_url": "https://images.unsplash.com/photo-1563805042-7684c019e1cb?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/706555/48933_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -411,7 +424,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Galleta crujiente bañada en una rica capa de chocolate con leche Pozuelo.",
         "codigo_barras": "7411001000476",
         "precio_base": D("1.20"),
-        "imagen_url": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/958159/galletas-pozuelo-chiky-chocolate-480-g-0086581010881.webp",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -419,7 +432,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Galletas saladas horneadas individuales para llevar a cualquier parte.",
         "codigo_barras": "7411001000483",
         "precio_base": D("1.25"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/crackers.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/709619/51128_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -427,7 +440,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Hojuelas de papa natural fritas y sazonadas con el toque exacto de sal.",
         "codigo_barras": "7411001000490",
         "precio_base": D("1.65"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/potato-chips.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/518659/49437_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -435,7 +448,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Papas tostadas en tubo apilables con forma hiperbólica perfecta.",
         "codigo_barras": "7411001000506",
         "precio_base": D("2.45"),
-        "imagen_url": "https://images.unsplash.com/photo-1527842891421-42eec6e703ea?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/776350/110620_01.jpg",
     },
     {
         "categoria": "Snacks y Golosinas",
@@ -443,7 +456,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Barra de chocolate con leche rellena de turrón, caramelo y cacahuates.",
         "codigo_barras": "7411001000513",
         "precio_base": D("0.95"),
-        "imagen_url": "https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/826837/chocolate-snickers-almendras-barra-49-9-g-0040000001058.jpg",
     },
 
     # --- 5. EMBUTIDOS Y CARNES (8) ---
@@ -453,7 +466,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Salchichas bajas en grasa de pura carne de pavo empacadas al vacío.",
         "codigo_barras": "7411001000520",
         "precio_base": D("2.10"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/sausages.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/702852/80570_01.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -461,7 +474,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Salchicha estilo viena condimentada ideal para panchos o guisados.",
         "codigo_barras": "7411001000537",
         "precio_base": D("0.95"),
-        "imagen_url": "https://images.unsplash.com/photo-1629814249584-bd4d53cf0e7d?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/705950/43595_01.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -469,7 +482,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Rebanadas delgadas de jamón de pierna curado y cocido.",
         "codigo_barras": "7411001000544",
         "precio_base": D("2.30"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/ham.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/861410/jamon-fud-ahumado-selva-negra-350-g-7441008931256.webp",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -477,7 +490,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Tiras de tocino de cerdo ahumadas con maderas finas listas para dorar.",
         "codigo_barras": "7411001000551",
         "precio_base": D("2.65"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/raw-bacon.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/669026/65318_01.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -485,7 +498,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pechuga de pollo fresca sin piel ni hueso, corte limpio certificado.",
         "codigo_barras": "7411001000568",
         "precio_base": D("3.45"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/chicken-breasts.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/878648/pechuga-de-pollo-indio-deshuesada-y-marinada-precio-indicado-por-libra-354-g-2594170000000.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -493,7 +506,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Carne molida 90% magra de res fresca salvadoreña sin aditivos.",
         "codigo_barras": "7411001000575",
         "precio_base": D("3.85"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/fresh-ground-beef.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/873038/carne-molida-super-especial-precio-indicado-por-libra-454-g-2523220000004.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -501,7 +514,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Chorizos estilo tradicional oriental con hierbas aromáticas y achiote.",
         "codigo_barras": "7411001000582",
         "precio_base": D("2.80"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/chorizo.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/663402/98897_01.jpg",
     },
     {
         "categoria": "Embutidos y Carnes",
@@ -509,7 +522,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Jamón virginia de pechuga de pavo ahumado bajo en sodio.",
         "codigo_barras": "7411001000599",
         "precio_base": D("2.75"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/turkey-breast.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/481469/78221_01.jpg",
     },
 
     # --- 6. PANADERÍA Y DESAYUNO (8) ---
@@ -519,7 +532,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pan de caja clásico con leche y calcio para sándwiches suaves.",
         "codigo_barras": "7411001000605",
         "precio_base": D("1.95"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/white-bread.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/801228/pan-blanco-bimbo-mediano-450-g-7441029556759.webp",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -527,7 +540,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pan elaborado con grano entero y fibra dietética para cuidar tu salud.",
         "codigo_barras": "7411001000612",
         "precio_base": D("2.40"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/whole-wheat-bread.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/821699/pan-cuadrado-bimbo-integral-100-grano-entero-530-g-7441029500325.webp",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -535,7 +548,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Bollos suaves con ajonjolí tostado listos para hamburguesas caseras.",
         "codigo_barras": "7411001000629",
         "precio_base": D("2.15"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/hamburger-bun.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/821684/pan-bimbo-para-super-hamburguesa-4-piezas-320-g-7441029507768.webp",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -543,7 +556,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Pan alargado esponjoso para preparar perros calientes con facilidad.",
         "codigo_barras": "7411001000636",
         "precio_base": D("1.95"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/hot-dog-buns.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/875237/pan-bimbo-hot-dog-sin-ajonjoli-8-piezas-325-g-7441029500301.webp",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -551,7 +564,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Rebanadas de pan tostado crujientes enriquecidas con vitaminas.",
         "codigo_barras": "7411001000643",
         "precio_base": D("1.45"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/toast.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/821714/tortilla-bimbo-trigo-burritos-clasicas-5-uds-250-g-7441029555653.webp",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -559,7 +572,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Hojuelas de maíz tostadas sin gluten añadidas con hierro y vitaminas B.",
         "codigo_barras": "7411001000650",
         "precio_base": D("2.70"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/cornflakes.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/623757/59182_01.jpg",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -567,7 +580,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Ricas hojuelas de maíz azucaradas para despertar la energía del tigre.",
         "codigo_barras": "7411001000667",
         "precio_base": D("3.15"),
-        "imagen_url": "https://images.unsplash.com/photo-1521483451569-e33803c0330c?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/741361/63319_01.jpg",
     },
     {
         "categoria": "Panadería y Desayuno",
@@ -575,7 +588,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Avena de grano entero rica en fibra soluble para el colesterol y digestión.",
         "codigo_barras": "7411001000674",
         "precio_base": D("1.25"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/rolled-oats.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/806701/avena-en-hojuelas-quaker-mosh-1200-g-0803275306378.webp",
     },
 
     # --- 7. FRUTAS Y VERDURAS (10) ---
@@ -585,7 +598,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Tomates frescos seleccionados de madurez media para salsas y guisos.",
         "codigo_barras": "7411001000681",
         "precio_base": D("0.65"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/tomato.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/934692/tomate-de-cocina-2-a-4-unidades-precio-indicado-por-libra-454-g-2546640000003.webp",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -593,7 +606,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Cebollas blancas firmes y frescas de bulbo limpio.",
         "codigo_barras": "7411001000698",
         "precio_base": D("0.75"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/white-onion.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/454576/Cebolla-Blanca-Precio-Indicado-Por-Libra-454-G-1-83.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -601,7 +614,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Cebolla morada crujiente ideal para curtidos, ensaladas y mariscos.",
         "codigo_barras": "7411001000704",
         "precio_base": D("0.85"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/red-onion.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/860082/cebolla-hurtifruti-morada-precio-por-libra-2-a-4-unidades-por-lb-aproximadamente-2595500000004.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -609,7 +622,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Papa blanca lisa de pulpa suave perfecta para puré, fritas o sopas.",
         "codigo_barras": "7411001000711",
         "precio_base": D("0.70"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/potatoes-yukon-gold.png",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/395181/Papa-Soloma-Libra-1-87.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -617,7 +630,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Chile pimiento verde fresco con piel gruesa y aromática.",
         "codigo_barras": "7411001000728",
         "precio_base": D("0.35"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/green-bell-pepper.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/859980/chile-verde-grande-1-unidad-0000000074858.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -625,7 +638,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Limones verdes sin semilla con abundante jugo natural.",
         "codigo_barras": "7411001000735",
         "precio_base": D("0.90"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/lime.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/395451/Limon-Persico-10-Unidades-1-10249.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -633,7 +646,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Plátano maduro con dulzura perfecta para canoas, fritos o sancochados.",
         "codigo_barras": "7411001000742",
         "precio_base": D("0.40"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/plantains.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/812119/snack-pro-platano-maduro-70-9-g-7441005714838.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -641,7 +654,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Manzana dulce importada de pulpa firme y cáscara brillante.",
         "codigo_barras": "7411001000759",
         "precio_base": D("0.60"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/apple.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/395431/Manzana-Gala-Paquete-6-Unidades-1-12514.jpg",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -649,7 +662,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Bananos dulces madurados al punto ricos en potasio y energía.",
         "codigo_barras": "7411001000766",
         "precio_base": D("0.75"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/bananas.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/868677/guineo-hortifruti-de-seda-5-a-7-unidades-precio-indicado-por-libra-454-g-2574500000009.webp",
     },
     {
         "categoria": "Frutas y Verduras",
@@ -657,7 +670,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Zanahorias dulces crocantes listas para picar, cocinar o rallar.",
         "codigo_barras": "7411001000773",
         "precio_base": D("0.55"),
-        "imagen_url": "https://img.spoonacular.com/ingredients_500x500/carrots.jpg",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/757676/50476_01.jpg",
     },
 
     # --- 8. CUIDADO PERSONAL (12) ---
@@ -667,7 +680,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Protección anticaries, dientes blancos y aliento fresco con menta original.",
         "codigo_barras": "7411001000780",
         "precio_base": D("1.40"),
-        "imagen_url": "https://images.unsplash.com/photo-1550985543-f1ea83691cd8?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/944908/pasta-dental-colgate-triple-accion-75-ml-7509546000985.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -675,7 +688,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Cerdas en ángulo multi-nivel para una limpieza profunda entre los dientes.",
         "codigo_barras": "7411001000797",
         "precio_base": D("1.75"),
-        "imagen_url": "https://images.unsplash.com/photo-1625834319124-345137437603?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/902887/cepillo-de-dientes-colgate-zig-zag-carbon-3-uds-8718951179912.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -683,7 +696,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Elimina el 99.9% de bacterias mientras humecta y cuida la piel con avena.",
         "codigo_barras": "7411001000803",
         "precio_base": D("0.95"),
-        "imagen_url": "https://images.unsplash.com/photo-1600857544200-b2f666a9a2ec?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/869102/jabon-protex-carbon-6-pack-6-60-g-7509546690773.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -691,7 +704,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Sensación humectante y fragancia suave con extracto de oliva y aloe.",
         "codigo_barras": "7411001000810",
         "precio_base": D("0.85"),
-        "imagen_url": "https://images.unsplash.com/photo-1546552768-9e3a94b38a59?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/903702/jabon-de-tocador-palmolive-naturals-mixto-4-pack-400-g-7509546683072.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -699,7 +712,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Fórmula dermasense para hasta 100% libre de caspa y cabello fresco.",
         "codigo_barras": "7411001000827",
         "precio_base": D("4.50"),
-        "imagen_url": "https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/733076/100627_01.jpg",
     },
     {
         "categoria": "Cuidado Personal",
@@ -707,7 +720,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Ayuda a reparar el cabello dañado desde la raíz hasta las puntas.",
         "codigo_barras": "7411001000834",
         "precio_base": D("4.25"),
-        "imagen_url": "https://images.unsplash.com/photo-1705155733070-16069099b94a?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/206664/Acondicionador-Pantene-Pro-V-Restauraci-n-200Ml-1-4101.jpg",
     },
     {
         "categoria": "Cuidado Personal",
@@ -715,7 +728,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Protección antitranspirante 48 horas activada por el movimiento.",
         "codigo_barras": "7411001000841",
         "precio_base": D("2.20"),
-        "imagen_url": "https://images.unsplash.com/photo-1616763355548-1b606f439f86?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/915230/rexona-m-aob-deo-aero-active-150-ml-7791293051581.jpg",
     },
     {
         "categoria": "Cuidado Personal",
@@ -723,7 +736,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Control del sudor y olor con aroma femenino y sin dejar manchas blancas.",
         "codigo_barras": "7411001000858",
         "precio_base": D("2.15"),
-        "imagen_url": "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/895108/desodorante-lady-speed-stick-clinical-complete-aerosol-150-ml-7509546073828.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -731,7 +744,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Infusión de serum de hidratación profunda y aceite de almendras para piel seca.",
         "codigo_barras": "7411001000865",
         "precio_base": D("3.80"),
-        "imagen_url": "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/950414/crema-corporal-nivea-milk-nutricion-y-humectacion-profunda-400-ml-7501054504535.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -739,7 +752,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Máxima absorción y protección durante toda la noche con tecnología anti-derrames.",
         "codigo_barras": "7411001000872",
         "precio_base": D("1.65"),
-        "imagen_url": "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/816948/toallas-femeninas-kotex-sport-14-unidades-7441008172536.webp",
     },
     {
         "categoria": "Cuidado Personal",
@@ -747,7 +760,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Gel desinfectante con 70% de alcohol etílico y humectantes para manos limpias.",
         "codigo_barras": "7411001000889",
         "precio_base": D("1.50"),
-        "imagen_url": "https://images.unsplash.com/photo-1584483766114-2cea6facdf57?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/892249/M-5_walmartsv_mHVbrIyced_115305_01.jpg",
     },
     {
         "categoria": "Cuidado Personal",
@@ -755,7 +768,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Protección UVA/UVB alta resistente al agua y humectación inmediata.",
         "codigo_barras": "7411001000896",
         "precio_base": D("7.90"),
-        "imagen_url": "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/526552/73035_01.jpg",
     },
 
     # --- 9. LIMPIEZA DEL HOGAR (11) ---
@@ -765,7 +778,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Detergente para ropa blanca y de color con espuma controlada y rico aroma.",
         "codigo_barras": "7411001000902",
         "precio_base": D("2.40"),
-        "imagen_url": "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/885202/M-5_walmartsv_MODVqOzupG_120250_01.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -773,7 +786,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Remueve manchas difíciles y elimina olores atrapados en las fibras.",
         "codigo_barras": "7411001000919",
         "precio_base": D("2.85"),
-        "imagen_url": "https://images.unsplash.com/photo-1624372635310-01d078c05dd9?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/871708/det-polvo-xedex-pe-suav-lavanda-900-gr-7401001695319.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -781,7 +794,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Deja tu ropa increíblemente suave, fácil de planchar y con aroma duradero.",
         "codigo_barras": "7411001000926",
         "precio_base": D("1.85"),
-        "imagen_url": "https://images.unsplash.com/photo-1585421514738-01798e348b17?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/940980/suavizante-de-telas-suavitel-complete-aqua-720-ml-7509546692098.webp",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -789,7 +802,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Desinfectante clorado multisuperficies y blanqueador concentrado.",
         "codigo_barras": "7411001000933",
         "precio_base": D("2.60"),
-        "imagen_url": "https://images.unsplash.com/photo-1584813470613-5b1c1cad3d69?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/919974/M-5_walmartsv_rfooapKyKh_51485_01.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -797,7 +810,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Limpiador multiusos con aroma a lavanda que neutraliza malos olores.",
         "codigo_barras": "7411001000940",
         "precio_base": D("1.35"),
-        "imagen_url": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/914156/desinfectante-fabuloso-multiusos-frescura-activa-antibacterial-lavanda-900-ml-0099176132608.webp",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -805,7 +818,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Poderoso arrancagrasa concentrado que rinde cientos de platos limpios.",
         "codigo_barras": "7411001000957",
         "precio_base": D("2.10"),
-        "imagen_url": "https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/864989/lavaplatos-axion-limon-liquido-1-5-l-7702010382079.webp",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -813,7 +826,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Fibra verde abrasiva y esponja absorbente con hendidura protectora de uñas.",
         "codigo_barras": "7411001000964",
         "precio_base": D("1.25"),
-        "imagen_url": "https://images.unsplash.com/photo-1584634731339-252c581abfc5?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/734043/64561_01.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -821,7 +834,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Rollos dobles con tecnología de hojas acolchadas más suaves y resistentes.",
         "codigo_barras": "7411001000971",
         "precio_base": D("2.10"),
-        "imagen_url": "https://images.unsplash.com/photo-1584475784921-d9dbfd9d17ca?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/905702/papel-higienico-scott-rindemax-doble-hoja-4-rollos-7441008168324.webp",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -829,7 +842,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Toallas de papel absorbentes ultra resistentes para limpiar derrames en la cocina.",
         "codigo_barras": "7411001000988",
         "precio_base": D("2.30"),
-        "imagen_url": "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/723002/46334_01.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -837,7 +850,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Bolsas plásticas resistentes tamaño grande para basureros de patio o cocina.",
         "codigo_barras": "7411001000995",
         "precio_base": D("1.75"),
-        "imagen_url": "https://images.unsplash.com/photo-1530587191325-3db32d826c18?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/534003/75111_01.jpg",
     },
     {
         "categoria": "Limpieza del Hogar",
@@ -845,7 +858,7 @@ PRODUCTOS_DATA = [
         "descripcion": "Fórmula eficaz contra moscas, zancudos, cucarachas y hormigas.",
         "codigo_barras": "7411001001008",
         "precio_base": D("3.50"),
-        "imagen_url": "https://images.unsplash.com/photo-1587293852726-70cdb56c2866?auto=format&fit=crop&w=600&q=80",
+        "imagen_url": "https://walmartsv.vteximg.com.br/arquivos/ids/578632/50916_01.jpg",
     },
 ]
 
@@ -942,12 +955,51 @@ def poblar() -> None:
                         )
                     )
                     inventario_creado += 1
+                elif inv.stock_disponible < 10:
+                    inv.stock_disponible = 50
+
+        # 5. Asegurar imágenes oficiales e inventario para los productos base de la semilla (seed)
+        seed_actualizados = 0
+        for nombre_seed, url_seed in SEED_PRODUCTS_IMAGES.items():
+            prod_seed = db.scalar(select(m.Producto).where(m.Producto.nombre == nombre_seed))
+            if prod_seed:
+                prod_seed.imagen_url = url_seed
+                prod_seed.activo = True
+                seed_actualizados += 1
+                for sucursal in sucursales:
+                    inv_s = db.scalar(
+                        select(m.Inventario).where(
+                            m.Inventario.id_sucursal == sucursal.id_sucursal,
+                            m.Inventario.id_producto == prod_seed.id_producto,
+                        )
+                    )
+                    if not inv_s:
+                        db.add(m.Inventario(id_sucursal=sucursal.id_sucursal, id_producto=prod_seed.id_producto, stock_disponible=50))
+                    elif inv_s.stock_disponible < 10:
+                        inv_s.stock_disponible = 50
 
         db.commit()
+
+        # 6. Verificación exhaustiva: Ningún producto debe quedar sin imagen
+        productos_sin_imagen = db.scalars(
+            select(m.Producto).where(
+                (m.Producto.imagen_url.is_(None)) | (m.Producto.imagen_url == "")
+            )
+        ).all()
+        total_productos = len(db.scalars(select(m.Producto)).all())
+
         print(f"\nProceso finalizado con éxito:")
         print(f"  - Productos nuevos creados: {creados}")
         print(f"  - Productos actualizados: {actualizados}")
+        print(f"  - Productos semilla actualizados con imagen: {seed_actualizados}")
         print(f"  - Registros de inventario generados: {inventario_creado}")
+        print(f"  - Total de productos en base de datos: {total_productos}")
+        if productos_sin_imagen:
+            print(f"  [ALERTA] Productos aún sin imagen: {len(productos_sin_imagen)}")
+            for p in productos_sin_imagen:
+                print(f"    * ID {p.id_producto}: {p.nombre}")
+        else:
+            print(f"  [OK] ¡100% de productos tienen imagen oficial asignada (0 faltantes)!\n")
 
 
 if __name__ == "__main__":

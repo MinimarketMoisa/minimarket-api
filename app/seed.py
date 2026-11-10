@@ -44,14 +44,26 @@ def run() -> None:
         db.flush()
 
         catalogo = [
-            ("Arroz 1 lb", "Comida", "0.65"), ("Frijoles 1 lb", "Comida", "0.85"),
-            ("Aceite 1 L", "Comida", "2.10"), ("Jabón de baño", "Baño", "0.75"),
-            ("Papel higiénico x4", "Baño", "1.90"), ("Detergente 1 kg", "Limpieza", "2.80"),
-            ("Cloro 1 galón", "Limpieza", "2.25"), ("Escoba", "Hogar", "3.50"),
-            ("Vasos plásticos x50", "Hogar", "1.40"),
+            ("Arroz 1 lb", "Comida", "0.65", "https://walmartsv.vteximg.com.br/arquivos/ids/894752/M-5_walmartsv_NEDMdLbClp_124672_01.jpg"),
+            ("Frijoles 1 lb", "Comida", "0.85", "https://walmartsv.vteximg.com.br/arquivos/ids/738824/63468_01.jpg"),
+            ("Aceite 1 L", "Comida", "2.10", "https://walmartsv.vteximg.com.br/arquivos/ids/751028/47494_01.jpg"),
+            ("Jabón de baño", "Baño", "0.75", "https://walmartsv.vteximg.com.br/arquivos/ids/865846/jabon-protex-omega-3-3-pack-660-g-0099176922780.webp"),
+            ("Papel higiénico x4", "Baño", "1.90", "https://walmartsv.vteximg.com.br/arquivos/ids/904090/papel-higienico-scott-balance-32-ea-2-p-7441008104988.webp"),
+            ("Detergente 1 kg", "Limpieza", "2.80", "https://walmartsv.vteximg.com.br/arquivos/ids/885202/M-5_walmartsv_MODVqOzupG_120250_01.jpg"),
+            ("Cloro 1 galón", "Limpieza", "2.25", "https://walmartsv.vteximg.com.br/arquivos/ids/882994/cloro-great-value-bt-3785-ml-galon-7441078231140.webp"),
+            ("Escoba", "Hogar", "3.50", "https://walmartsv.vteximg.com.br/arquivos/ids/921183/M-5_walmartsv_XpbvCIAKTl_51839_01.jpg"),
+            ("Vasos plásticos x50", "Hogar", "1.40", "https://walmartsv.vteximg.com.br/arquivos/ids/771059/46419_01.jpg"),
         ]
-        productos = [m.Producto(id_categoria=categorias[c].id_categoria, nombre=n, precio_base=D(p))
-                     for n, c, p in catalogo]
+        productos = [
+            m.Producto(
+                id_categoria=categorias[c].id_categoria,
+                nombre=n,
+                precio_base=D(p),
+                imagen_url=img,
+                activo=True,
+            )
+            for n, c, p, img in catalogo
+        ]
         db.add_all(productos)
         db.flush()
 
