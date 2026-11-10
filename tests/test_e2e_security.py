@@ -407,10 +407,16 @@ def test_flujo_olvide_contrasena():
     # 2b. Verificar que el formulario HTML oculta el token y rechaza enlaces sin token
     res_form_sin_token = client.get("/auth/restablecer-contrasena")
     assert res_form_sin_token.status_code == 400
+    assert "MiniMarket" in res_form_sin_token.text
+    assert "#fbf8f3" in res_form_sin_token.text
     res_form_ok = client.get(f"/auth/restablecer-contrasena?token={reset_token}")
     assert res_form_ok.status_code == 200
     assert 'type="hidden" id="token"' in res_form_ok.text
     assert "Token de Verificación" not in res_form_ok.text
+    assert "MiniMarket" in res_form_ok.text
+    assert "#ea580c" in res_form_ok.text
+    assert "#fbf8f3" in res_form_ok.text
+    assert "Ahorra tiempo y dinero" in res_form_ok.text
 
     # 3. Restablecer con nueva contraseña
     nueva_clave = "ClaveSegura2026!"

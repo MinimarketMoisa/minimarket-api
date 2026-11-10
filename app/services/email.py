@@ -12,7 +12,69 @@ logger = logging.getLogger(__name__)
 
 def _remitente() -> str:
     correo = (settings.smtp_from_email or settings.smtp_user).strip()
-    return f"Minimarket <{correo}>"
+    return f"MiniMarket <{correo}>"
+
+
+def _formatear_vigencia(minutos: int) -> str:
+    if minutos >= 1440 and minutos % 1440 == 0:
+        dias = minutos // 1440
+        return "1 día" if dias == 1 else f"{dias} días"
+    if minutos >= 60 and minutos % 60 == 0:
+        horas = minutos // 60
+        return "1 hora" if horas == 1 else f"{horas} horas"
+    return "1 minuto" if minutos == 1 else f"{minutos} minutos"
+
+
+def _envolver_email_minimarket(etiqueta: str, contenido_html: str) -> str:
+    etiqueta_segura = html.escape(etiqueta)
+    return f"""<!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{etiqueta_segura} - MiniMarket</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #fbf8f3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1c1917; line-height: 1.6;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fbf8f3; padding: 32px 12px;">
+            <tr>
+                <td align="center">
+                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f1e5d8; border-top: 4px solid #ea580c;">
+                        <!-- Header MiniMarket -->
+                        <tr>
+                            <td style="background-color: #fff7ed; padding: 22px 28px; text-align: center; border-bottom: 1px solid #f5ebe0;">
+                                <div style="font-size: 25px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.15;">
+                                    <span style="color: #ea580c;">Mini</span><span style="color: #3f6212;">Market</span>
+                                </div>
+                                <div style="color: #65a30d; font-size: 12.5px; font-weight: 600; margin-top: 4px;">
+                                    Ahorra tiempo y dinero
+                                </div>
+                            </td>
+                        </tr>
+                        <!-- Body -->
+                        <tr>
+                            <td style="padding: 30px 28px; text-align: left;">
+                                <div style="margin-bottom: 14px;">
+                                    <span style="display: inline-block; background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; padding: 4px 12px; border-radius: 999px;">
+                                        {etiqueta_segura}
+                                    </span>
+                                </div>
+                                {contenido_html}
+                            </td>
+                        </tr>
+                        <!-- Footer -->
+                        <tr>
+                            <td style="background-color: #fbf8f3; padding: 16px 28px; text-align: center; border-top: 1px solid #f5ebe0;">
+                                <p style="color: #78716c; font-size: 12px; margin: 0;">
+                                    MiniMarket &middot; Frescura y ahorro hasta tu puerta
+                                </p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>"""
 
 
 def _enviar_email(msg: EmailMessage, destinatario: str) -> bool:
@@ -62,87 +124,48 @@ def _enviar_email(msg: EmailMessage, destinatario: str) -> bool:
 
 def enviar_correo_verificacion_registro(destinatario: str, nombre_usuario: str, token: str) -> bool:
     """
-    Envía el correo de verificación de cuenta recién registrada con enlace de un solo clic y código/token.
+    Envía el correo de verificación de cuenta recién registrada con enlace de un solo clic.
     """
     nombre_seguro = html.escape(nombre_usuario)
     base_url = settings.api_base_url.rstrip("/")
     enlace_verificacion = f"{base_url}/auth/verificar-correo?token={token}"
 
     msg = EmailMessage()
-    msg["Subject"] = "Verifica tu cuenta - Minimarket"
+    msg["Subject"] = "Verifica tu cuenta - MiniMarket"
     msg["From"] = _remitente()
     msg["To"] = destinatario
 
-    # Versión texto plano
     msg.set_content(
         f"Hola {nombre_usuario},\n\n"
-        f"¡Gracias por unirte a Minimarket! Para activar tu cuenta, por favor verifica tu correo electrónico haciendo clic en el siguiente enlace:\n\n"
+        f"¡Gracias por unirte a MiniMarket! Para activar tu cuenta, por favor verifica tu correo electrónico haciendo clic en el siguiente enlace:\n\n"
         f"{enlace_verificacion}\n\n"
-        f"Este enlace expirará en 24 horas. Si no realizaste este registro, ignora este mensaje."
+        f"Este enlace expirará en {settings.email_verification_token_expire_hours} horas. Si no realizaste este registro, ignora este mensaje."
     )
 
-    # Versión HTML moderna y adaptable
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Verifica tu cuenta</title>
-    </head>
-    <body style="margin: 0; padding: 0; background-color: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #2d3748; line-height: 1.6;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f6f8; padding: 40px 10px;">
-            <tr>
-                <td align="center">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); overflow: hidden; border: 1px solid #e2e8f0;">
-                        <!-- Header -->
-                        <tr>
-                            <td style="background-color: #1e40af; padding: 30px; text-align: center;">
-                                <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -0.5px;">Minimarket</h1>
-                                <p style="color: #bfdbfe; margin: 6px 0 0 0; font-size: 14px;">Tu supermercado al instante</p>
-                            </td>
-                        </tr>
-                        <!-- Body -->
-                        <tr>
-                            <td style="padding: 32px 30px;">
-                                <h2 style="color: #1f2937; margin-top: 0; font-size: 20px;">¡Hola, {nombre_seguro}! 👋</h2>
-                                <p style="color: #4b5563; font-size: 15px; margin-bottom: 24px;">
-                                    Gracias por registrarte en Minimarket. Para completar la creación de tu cuenta y empezar a realizar pedidos, por favor confirma tu dirección de correo electrónico.
-                                </p>
-                                
-                                <!-- Botón de Verificación -->
-                                <div style="text-align: center; margin: 30px 0;">
-                                    <a href="{enlace_verificacion}" style="background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600; display: inline-block; box-shadow: 0 2px 6px rgba(37,99,235,0.3);">
-                                        Verificar mi Correo Electrónico
-                                    </a>
-                                </div>
+    body_html = f"""
+        <h2 style="color: #1c1917; margin: 0 0 12px 0; font-size: 21px; font-weight: 800;">¡Hola, {nombre_seguro}!</h2>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 24px 0;">
+            Gracias por registrarte en <strong>MiniMarket</strong>. Para completar la creación de tu cuenta y empezar a realizar pedidos, confirma tu dirección de correo electrónico:
+        </p>
 
-                                <p style="color: #6b7280; font-size: 13px; margin-top: 24px; text-align: center;">
-                                    Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br>
-                                    <a href="{enlace_verificacion}" style="color: #2563eb; word-break: break-all; font-size: 12px;">{enlace_verificacion}</a>
-                                </p>
+        <div style="text-align: center; margin: 28px 0;">
+            <a href="{enlace_verificacion}" style="background-color: #ea580c; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 700; display: inline-block;">
+                Verificar mi Correo Electrónico
+            </a>
+        </div>
 
-                                <p style="color: #9ca3af; font-size: 12px; margin-top: 24px; text-align: center;">
-                                    Este enlace expirará en 24 horas. Si no solicitaste esta cuenta, puedes ignorar este correo de forma segura.
-                                </p>
-                            </td>
-                        </tr>
-                        <!-- Footer -->
-                        <tr>
-                            <td style="background-color: #f9fafb; padding: 18px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                                <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-                                    &copy; Minimarket API. Todos los derechos reservados.
-                                </p>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
+        <div style="background-color: #fbf8f3; border: 1px solid #f1e5d8; border-radius: 10px; padding: 12px 14px; margin-top: 22px; text-align: center;">
+            <p style="color: #78716c; font-size: 12px; margin: 0 0 6px 0;">
+                Si el botón no funciona, copia y pega este enlace en tu navegador:
+            </p>
+            <a href="{enlace_verificacion}" style="color: #c2410c; word-break: break-all; font-size: 11px; text-decoration: underline;">{enlace_verificacion}</a>
+        </div>
+
+        <p style="color: #78716c; font-size: 12px; margin: 20px 0 0 0; text-align: center;">
+            Este enlace expirará en {settings.email_verification_token_expire_hours} horas. Si no solicitaste esta cuenta, puedes ignorar este correo de forma segura.
+        </p>
     """
-    msg.add_alternative(html_content, subtype="html")
+    msg.add_alternative(_envolver_email_minimarket("Verificación de Cuenta", body_html), subtype="html")
     return _enviar_email(msg, destinatario)
 
 
@@ -150,99 +173,80 @@ def enviar_correo_cambio_email(destinatario: str, nombre_usuario: str, token: st
     """Envía el correo de confirmación de cambio de correo electrónico."""
     nombre_seguro = html.escape(nombre_usuario)
     msg = EmailMessage()
-    msg["Subject"] = "Confirmación de Cambio de Correo - Minimarket"
+    msg["Subject"] = "Confirmación de Cambio de Correo - MiniMarket"
     msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
         f"Hola {nombre_usuario},\n\n"
-        f"Has solicitado cambiar tu correo en Minimarket.\n"
-        f"Tu código/token de verificación es:\n\n{token}\n\n"
-        f"Este token es válido por 15 minutos."
+        f"Has solicitado cambiar tu correo en MiniMarket.\n"
+        f"Tu código de verificación es:\n\n{token}\n\n"
+        f"Este código es válido por 15 minutos."
     )
 
-    msg.add_alternative(
-        f"""
-        <html>
-            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-                <div style="max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                    <h2 style="color: #2b6cb0; text-align: center;">Minimarket</h2>
-                    <hr style="border: none; border-top: 1px solid #eee;" />
-                    <p>Hola, <strong>{nombre_seguro}</strong>:</p>
-                    <p>Has solicitado cambiar tu dirección de correo electrónico a esta cuenta.</p>
-                    <p>Copia el siguiente token en la aplicación para confirmar el cambio:</p>
-                    <div style="background-color: #f7fafc; padding: 15px; text-align: center; font-size: 14px; font-weight: bold; border: 1px dashed #cbd5e0; margin: 20px 0; word-break: break-all;">
-                        {token}
-                    </div>
-                    <p style="font-size: 12px; color: #718096;">Este código expira en 15 minutos. Si no realizaste esta solicitud, puedes ignorar este mensaje.</p>
-                </div>
-            </body>
-        </html>
-        """,
-        subtype="html",
-    )
-
+    body_html = f"""
+        <h2 style="color: #1c1917; margin: 0 0 12px 0; font-size: 20px; font-weight: 800;">Confirmación de Nuevo Correo</h2>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 14px 0;">Hola, <strong>{nombre_seguro}</strong>:</p>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 18px 0;">
+            Has solicitado asociar esta dirección de correo a tu cuenta de <strong>MiniMarket</strong>. Ingresa el siguiente código en la aplicación para confirmar el cambio:
+        </p>
+        <div style="background-color: #fff7ed; padding: 14px; text-align: center; font-family: monospace; font-size: 13px; font-weight: 700; color: #9a3412; border: 1px dashed #fdba74; border-radius: 10px; margin: 18px 0; word-break: break-all;">
+            {html.escape(token)}
+        </div>
+        <p style="font-size: 12px; color: #78716c; margin: 16px 0 0 0; text-align: center;">
+            Este código expira en 15 minutos. Si no realizaste esta solicitud, puedes ignorar este mensaje.
+        </p>
+    """
+    msg.add_alternative(_envolver_email_minimarket("Cambio de Correo", body_html), subtype="html")
     return _enviar_email(msg, destinatario)
 
 
 def enviar_correo_reset_password(destinatario: str, nombre_usuario: str, token: str) -> bool:
-    """Envía el correo con enlace y token para restablecer la contraseña olvidada."""
+    """Envía el correo con enlace seguro para restablecer la contraseña olvidada."""
     nombre_seguro = html.escape(nombre_usuario)
     base_url = settings.api_base_url.rstrip("/")
     enlace_reset = f"{base_url}/auth/restablecer-contrasena?token={token}"
+    vigencia_texto = _formatear_vigencia(settings.password_reset_token_expire_minutes)
 
     msg = EmailMessage()
-    msg["Subject"] = "Restablece tu contraseña - Minimarket"
+    msg["Subject"] = "Restablece tu contraseña - MiniMarket"
     msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
         f"Hola {nombre_usuario},\n\n"
-        f"Recibimos una solicitud para restablecer tu contraseña en Minimarket.\n"
+        f"Recibimos una solicitud para restablecer tu contraseña en MiniMarket.\n"
         f"Haz clic en el siguiente enlace para crear una nueva contraseña:\n\n"
         f"{enlace_reset}\n\n"
-        f"Este enlace expira en {settings.password_reset_token_expire_minutes} minutos.\n"
+        f"Este enlace expira en {vigencia_texto}.\n"
         f"Si no solicitaste este cambio, puedes ignorar este correo de forma segura."
     )
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>Restablecer Contraseña</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 30px 10px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-                <td align="center">
-                    <div style="max-width: 520px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px rgba(0,0,0,0.04); text-align: left;">
-                        <h2 style="color: #1e3a8a; margin-top: 0;">Minimarket</h2>
-                        <h3 style="color: #0f172a; margin-top: 10px;">Recuperación de Contraseña</h3>
-                        <p style="color: #475569; font-size: 15px;">Hola, <strong>{nombre_seguro}</strong>:</p>
-                        <p style="color: #475569; font-size: 15px;">
-                            Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón de abajo para definir una nueva:
-                        </p>
-                        <div style="text-align: center; margin: 28px 0;">
-                            <a href="{enlace_reset}" style="background-color: #2563eb; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-weight: 600; display: inline-block;">
-                                Restablecer mi Contraseña
-                            </a>
-                        </div>
-                        <p style="color: #64748b; font-size: 13px; text-align: center;">
-                            Si el botón no funciona, copia este enlace en tu navegador: <br/>
-                            <a href="{enlace_reset}" style="color: #2563eb; word-break: break-all; font-size: 12px;">{enlace_reset}</a>
-                        </p>
-                        <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; text-align: center;">
-                            Este enlace expirará en {settings.password_reset_token_expire_minutes} minutos. Si no fuiste tú, tu cuenta sigue segura y no necesitas hacer nada.
-                        </p>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
+    body_html = f"""
+        <h2 style="color: #1c1917; margin: 0 0 12px 0; font-size: 21px; font-weight: 800;">Recuperación de Contraseña</h2>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 10px 0;">Hola, <strong>{nombre_seguro}</strong>:</p>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 24px 0;">
+            Recibimos una solicitud para restablecer la contraseña de tu cuenta en <strong>MiniMarket</strong>. Haz clic en el botón de abajo para definir una nueva:
+        </p>
+
+        <div style="text-align: center; margin: 28px 0;">
+            <a href="{enlace_reset}" style="background-color: #ea580c; color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-size: 15px; font-weight: 700; display: inline-block;">
+                Restablecer mi Contraseña
+            </a>
+        </div>
+
+        <div style="background-color: #fbf8f3; border: 1px solid #f1e5d8; border-radius: 10px; padding: 12px 14px; margin-top: 22px; text-align: center;">
+            <p style="color: #78716c; font-size: 12px; margin: 0 0 6px 0;">
+                ¿El botón no responde? Copia y pega este enlace en tu navegador:
+            </p>
+            <a href="{enlace_reset}" style="color: #c2410c; word-break: break-all; font-size: 11px; text-decoration: underline;">{enlace_reset}</a>
+        </div>
+
+        <p style="color: #78716c; font-size: 12px; margin: 20px 0 0 0; text-align: center;">
+            Este enlace expirará en <strong>{vigencia_texto}</strong>. Si no fuiste tú, tu cuenta sigue segura y no necesitas hacer nada.
+        </p>
     """
-    msg.add_alternative(html_content, subtype="html")
+    msg.add_alternative(_envolver_email_minimarket("Seguridad de Cuenta", body_html), subtype="html")
     return _enviar_email(msg, destinatario)
 
 
@@ -252,36 +256,30 @@ def enviar_aviso_seguridad(destinatario: str, nombre_usuario: str, accion: str) 
     accion_segura = html.escape(accion)
 
     msg = EmailMessage()
-    msg["Subject"] = "Alerta de Seguridad - Minimarket"
+    msg["Subject"] = "Alerta de Seguridad - MiniMarket"
     msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
         f"Hola {nombre_usuario},\n\n"
-        f"Te informamos de una acción reciente en tu cuenta de Minimarket: {accion}\n\n"
+        f"Te informamos de una acción reciente en tu cuenta de MiniMarket: {accion}\n\n"
         f"Si reconoces esta actividad, no necesitas hacer nada.\n"
         f"Si NO fuiste tú, por favor ponte en contacto con soporte de inmediato."
     )
 
-    html_content = f"""
-    <html>
-        <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; padding: 20px;">
-            <div style="max-width: 500px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 8px; padding: 24px;">
-                <h3 style="color: #b91c1c; margin-top: 0;">⚠️ Aviso de Seguridad</h3>
-                <p>Hola, <strong>{nombre_seguro}</strong>:</p>
-                <p>Se ha registrado la siguiente actividad en tu cuenta:</p>
-                <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 12px; margin: 16px 0; color: #991b1b; font-weight: 500;">
-                    {accion_segura}
-                </div>
-                <p style="font-size: 13px; color: #64748b;">
-                    Si realizaste esta acción, puedes ignorar este mensaje.<br/>
-                    Si no reconoces esta actividad, por favor comunícate de inmediato con nuestro soporte.
-                </p>
-            </div>
-        </body>
-    </html>
+    body_html = f"""
+        <h2 style="color: #b91c1c; margin: 0 0 12px 0; font-size: 20px; font-weight: 800;">Aviso de Seguridad</h2>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 10px 0;">Hola, <strong>{nombre_seguro}</strong>:</p>
+        <p style="color: #57534e; font-size: 15px; margin: 0 0 16px 0;">Se ha registrado la siguiente actividad en tu cuenta:</p>
+        <div style="background-color: #fef2f2; border-left: 4px solid #dc2626; border-radius: 6px; padding: 14px; margin: 16px 0; color: #991b1b; font-weight: 600; font-size: 14px;">
+            {accion_segura}
+        </div>
+        <p style="font-size: 13px; color: #78716c; margin: 18px 0 0 0;">
+            Si realizaste esta acción, puedes ignorar este mensaje.<br/>
+            Si no reconoces esta actividad, por favor comunícate de inmediato con nuestro soporte.
+        </p>
     """
-    msg.add_alternative(html_content, subtype="html")
+    msg.add_alternative(_envolver_email_minimarket("Alerta de Seguridad", body_html), subtype="html")
     return _enviar_email(msg, destinatario)
 
 
@@ -299,7 +297,6 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -
     envio = Decimal(str(datos.get("costo_envio") or "0.00"))
     total_guardado = Decimal(str(datos.get("total") or "0.00"))
 
-    # Construir filas de la tabla de productos
     filas_html = ""
     filas_texto = ""
     subtotal_prod = Decimal("0.00")
@@ -312,11 +309,11 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -
         subtotal_prod += sub
 
         filas_html += f"""
-        <tr style="border-bottom: 1px solid #f1f5f9;">
-            <td style="padding: 10px 8px; font-size: 14px; color: #1e293b;">{nom_prod}</td>
-            <td style="padding: 10px 8px; font-size: 14px; text-align: center; color: #475569;">{cantidad}</td>
-            <td style="padding: 10px 8px; font-size: 14px; text-align: right; color: #475569;">${precio_u:.2f}</td>
-            <td style="padding: 10px 8px; font-size: 14px; text-align: right; font-weight: 600; color: #0f172a;">${sub:.2f}</td>
+        <tr style="border-bottom: 1px solid #f5ebe0;">
+            <td style="padding: 10px 8px; font-size: 13.5px; color: #1c1917;">{nom_prod}</td>
+            <td style="padding: 10px 8px; font-size: 13.5px; text-align: center; color: #57534e;">{cantidad}</td>
+            <td style="padding: 10px 8px; font-size: 13.5px; text-align: right; color: #57534e;">${precio_u:.2f}</td>
+            <td style="padding: 10px 8px; font-size: 13.5px; text-align: right; font-weight: 700; color: #1c1917;">${sub:.2f}</td>
         </tr>
         """
         filas_texto += f"- {nom_prod} x{cantidad} @ ${precio_u:.2f} = ${sub:.2f}\n"
@@ -324,13 +321,13 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -
     total = total_guardado if total_guardado > Decimal("0.00") else (subtotal_prod + envio)
 
     msg = EmailMessage()
-    msg["Subject"] = f"Comprobante de Compra {ticket_num} - Minimarket"
+    msg["Subject"] = f"Comprobante de Compra {ticket_num} - MiniMarket"
     msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
         f"Hola {nombre_usuario},\n\n"
-        f"Gracias por tu compra en Minimarket.\n\n"
+        f"Gracias por tu compra en MiniMarket.\n\n"
         f"Comprobante: {ticket_num}\n"
         f"Fecha: {fecha_str}\n"
         f"Método de Pago: {metodo_pago} ({estado_pago})\n\n"
@@ -342,85 +339,58 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -
         f"Si tienes alguna duda o tu pedido presenta inconvenientes, comunícate con nosotros."
     )
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>Comprobante de Compra {ticket_num}</title>
-    </head>
-    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px 10px;">
-        <table width="100%" cellpadding="0" cellspacing="0">
+    body_html = f"""
+        <h2 style="color: #1c1917; margin: 0 0 6px 0; font-size: 20px; font-weight: 800;">Comprobante de Compra</h2>
+        <p style="color: #57534e; font-size: 13.5px; margin: 0 0 18px 0;">Gracias por comprar en MiniMarket, <strong>{nombre_seguro}</strong>.</p>
+
+        <table width="100%" style="margin-bottom: 18px; font-size: 13px; color: #57534e; background-color: #fbf8f3; border: 1px solid #f1e5d8; border-radius: 10px; padding: 10px 14px;">
             <tr>
-                <td align="center">
-                    <div style="max-width: 540px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); text-align: left;">
-                        <!-- Encabezado -->
-                        <div style="border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px;">
-                            <h2 style="color: #1e40af; margin: 0; font-size: 22px;">Minimarket</h2>
-                            <p style="color: #64748b; margin: 4px 0 0 0; font-size: 13px;">Comprobante de Compra / Ticket</p>
-                        </div>
-
-                        <!-- Metadatos -->
-                        <table width="100%" style="margin-bottom: 20px; font-size: 13px; color: #475569;">
-                            <tr>
-                                <td><strong>N.º de Orden:</strong> {ticket_num}</td>
-                                <td style="text-align: right;"><strong>Fecha:</strong> {fecha_str}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Cliente:</strong> {nombre_seguro}</td>
-                                <td style="text-align: right;"><strong>Pago:</strong> {metodo_pago}</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Tipo:</strong> {tipo_entrega}</td>
-                                <td style="text-align: right;"><strong>Estado Pago:</strong> {estado_pago}</td>
-                            </tr>
-                        </table>
-
-                        <!-- Tabla de productos -->
-                        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 20px; border-collapse: collapse;">
-                            <thead>
-                                <tr style="background-color: #f1f5f9; text-transform: uppercase; font-size: 11px; color: #475569; letter-spacing: 0.5px;">
-                                    <th style="padding: 8px; text-align: left;">Producto</th>
-                                    <th style="padding: 8px; text-align: center;">Cant.</th>
-                                    <th style="padding: 8px; text-align: right;">Precio</th>
-                                    <th style="padding: 8px; text-align: right;">Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filas_html}
-                            </tbody>
-                        </table>
-
-                        <!-- Totales -->
-                        <div style="background-color: #f8fafc; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px;">
-                            <table width="100%" style="font-size: 14px; color: #334155;">
-                                <tr>
-                                    <td>Subtotal Productos:</td>
-                                    <td style="text-align: right;">${subtotal_prod:.2f}</td>
-                                </tr>
-                                <tr>
-                                    <td>Costo de Envío:</td>
-                                    <td style="text-align: right;">${envio:.2f}</td>
-                                </tr>
-                                <tr style="font-size: 17px; font-weight: 700; color: #0f172a; border-top: 1px solid #e2e8f0;">
-                                    <td style="padding-top: 8px;">TOTAL:</td>
-                                    <td style="padding-top: 8px; text-align: right; color: #2563eb;">${total:.2f}</td>
-                                </tr>
-                            </table>
-                        </div>
-
-                        <!-- Pie de página -->
-                        <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">
-                            ¡Gracias por comprar en Minimarket! Conserva este comprobante para cualquier reclamo o seguimiento de tu entrega.
-                        </p>
-                    </div>
-                </td>
+                <td style="padding: 3px 0;"><strong>N.º de Orden:</strong> <span style="color: #ea580c; font-weight: 700;">{ticket_num}</span></td>
+                <td style="padding: 3px 0; text-align: right;"><strong>Fecha:</strong> {fecha_str}</td>
+            </tr>
+            <tr>
+                <td style="padding: 3px 0;"><strong>Entrega:</strong> {tipo_entrega}</td>
+                <td style="padding: 3px 0; text-align: right;"><strong>Pago:</strong> {metodo_pago}</td>
+            </tr>
+            <tr>
+                <td colspan="2" style="padding: 3px 0;"><strong>Estado del Pago:</strong> <span style="color: #15803d; font-weight: 700;">{estado_pago}</span></td>
             </tr>
         </table>
-    </body>
-    </html>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 18px; border-collapse: collapse;">
+            <thead>
+                <tr style="background-color: #fff7ed; text-transform: uppercase; font-size: 11px; color: #c2410c; letter-spacing: 0.5px;">
+                    <th style="padding: 9px 8px; text-align: left;">Producto</th>
+                    <th style="padding: 9px 8px; text-align: center;">Cant.</th>
+                    <th style="padding: 9px 8px; text-align: right;">Precio</th>
+                    <th style="padding: 9px 8px; text-align: right;">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {filas_html}
+            </tbody>
+        </table>
+
+        <div style="background-color: #fbf8f3; border: 1px solid #f1e5d8; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px;">
+            <table width="100%" style="font-size: 14px; color: #44403c;">
+                <tr>
+                    <td style="padding: 2px 0;">Subtotal Productos:</td>
+                    <td style="padding: 2px 0; text-align: right;">${subtotal_prod:.2f}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 2px 0;">Costo de Envío:</td>
+                    <td style="padding: 2px 0; text-align: right;">${envio:.2f}</td>
+                </tr>
+                <tr style="font-size: 17px; font-weight: 800; color: #1c1917; border-top: 1px solid #e7ddd3;">
+                    <td style="padding-top: 10px;">TOTAL:</td>
+                    <td style="padding-top: 10px; text-align: right; color: #ea580c;">${total:.2f}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="color: #78716c; font-size: 12px; text-align: center; margin: 0;">
+            Conserva este comprobante para cualquier seguimiento de tu entrega.
+        </p>
     """
-    msg.add_alternative(html_content, subtype="html")
-    return _enviar_email(msg, destinatario)
-    msg.add_alternative(html_content, subtype="html")
+    msg.add_alternative(_envolver_email_minimarket("Ticket de Compra", body_html), subtype="html")
     return _enviar_email(msg, destinatario)
