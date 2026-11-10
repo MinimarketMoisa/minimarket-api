@@ -78,8 +78,6 @@ def enviar_correo_verificacion_registro(destinatario: str, nombre_usuario: str, 
         f"Hola {nombre_usuario},\n\n"
         f"¡Gracias por unirte a Minimarket! Para activar tu cuenta, por favor verifica tu correo electrónico haciendo clic en el siguiente enlace:\n\n"
         f"{enlace_verificacion}\n\n"
-        f"O si utilizas una aplicación móvil, puedes ingresar este token de verificación:\n"
-        f"{token}\n\n"
         f"Este enlace expirará en 24 horas. Si no realizaste este registro, ignora este mensaje."
     )
 
@@ -123,16 +121,6 @@ def enviar_correo_verificacion_registro(destinatario: str, nombre_usuario: str, 
                                     Si el botón no funciona, copia y pega el siguiente enlace en tu navegador:<br>
                                     <a href="{enlace_verificacion}" style="color: #2563eb; word-break: break-all; font-size: 12px;">{enlace_verificacion}</a>
                                 </p>
-
-                                <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-
-                                <!-- Token para apps móviles / Postman -->
-                                <p style="color: #4b5563; font-size: 13px; margin-bottom: 8px;">
-                                    <strong>¿Usas la app móvil o API directa?</strong> También puedes ingresar o enviar este token:
-                                </p>
-                                <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; color: #334155; word-break: break-all; text-align: center;">
-                                    {token}
-                                </div>
 
                                 <p style="color: #9ca3af; font-size: 12px; margin-top: 24px; text-align: center;">
                                     Este enlace expirará en 24 horas. Si no solicitaste esta cuenta, puedes ignorar este correo de forma segura.
