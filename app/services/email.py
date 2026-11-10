@@ -200,7 +200,6 @@ def enviar_correo_reset_password(destinatario: str, nombre_usuario: str, token: 
         f"Recibimos una solicitud para restablecer tu contraseña en Minimarket.\n"
         f"Haz clic en el siguiente enlace para crear una nueva contraseña:\n\n"
         f"{enlace_reset}\n\n"
-        f"O ingresa el siguiente token en la app:\n{token}\n\n"
         f"Este enlace expira en {settings.password_reset_token_expire_minutes} minutos.\n"
         f"Si no solicitaste este cambio, puedes ignorar este correo de forma segura."
     )
@@ -229,14 +228,9 @@ def enviar_correo_reset_password(destinatario: str, nombre_usuario: str, token: 
                             </a>
                         </div>
                         <p style="color: #64748b; font-size: 13px; text-align: center;">
-                            O copia este enlace: <br/>
+                            Si el botón no funciona, copia este enlace en tu navegador: <br/>
                             <a href="{enlace_reset}" style="color: #2563eb; word-break: break-all; font-size: 12px;">{enlace_reset}</a>
                         </p>
-                        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-                        <p style="color: #475569; font-size: 13px;"><strong>¿Usas la app móvil?</strong> Token de un solo uso:</p>
-                        <div style="background-color: #f1f5f9; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 12px; text-align: center; word-break: break-all; color: #1e293b;">
-                            {token}
-                        </div>
                         <p style="color: #94a3b8; font-size: 12px; margin-top: 24px; text-align: center;">
                             Este enlace expirará en {settings.password_reset_token_expire_minutes} minutos. Si no fuiste tú, tu cuenta sigue segura y no necesitas hacer nada.
                         </p>

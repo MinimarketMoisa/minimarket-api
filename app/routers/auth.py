@@ -618,11 +618,45 @@ def olvide_contrasena(
 def formulario_restablecer_contrasena(
     request: Request,
     token: Optional[str] = Query(None, description="Token de restablecimiento"),
+    db: Session = Depends(get_db),
 ):
     """
     Retorna el formulario HTML interactivo para ingresar la nueva contraseña desde el navegador.
+    Mantiene el token oculto al usuario final y valida previamente que el enlace sea válido.
     """
-    token_val = html.escape(token or "")
+    if not token or not token.strip():
+        return HTMLResponse(
+            content=_html_verificacion_fallida(
+                "El enlace de recuperación está incompleto o es inválido. Por favor solicita uno nuevo desde la app."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    payload = decode_password_reset_token(token.strip())
+    if not payload:
+        return HTMLResponse(
+            content=_html_verificacion_fallida(
+                "Este enlace de recuperación ha expirado o es inválido. Por favor solicita uno nuevo."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    id_usuario = int(payload["sub"])
+    usuario = db.get(m.Usuario, id_usuario)
+    if (
+        usuario is None
+        or not usuario.activo
+        or payload.get("ver") != usuario.token_version
+        or not hmac.compare_digest(payload.get("pwd", ""), password_fingerprint(usuario.password))
+    ):
+        return HTMLResponse(
+            content=_html_verificacion_fallida(
+                "Este enlace ya fue utilizado o ya no es válido. Solicita uno nuevo si necesitas cambiar tu contraseña."
+            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+    token_val = html.escape(token.strip())
     return HTMLResponse(
         content=f"""
         <!DOCTYPE html>
@@ -670,9 +704,9 @@ def formulario_restablecer_contrasena(
                     color: #334155;
                     margin-bottom: 6px;
                 }}
-                input[type="password"], input[type="text"] {{
+                input[type="password"] {{
                     width: 100%;
-                    padding: 10px 12px;
+                    padding: 11px 12px;
                     border: 1px solid #cbd5e1;
                     border-radius: 8px;
                     font-size: 14px;
@@ -701,31 +735,32 @@ def formulario_restablecer_contrasena(
                 }}
                 #msg {{
                     margin-top: 16px;
-                    font-size: 13px;
+                    font-size: 14px;
                     text-align: center;
-                    padding: 10px;
-                    border-radius: 6px;
+                    padding: 14px;
+                    border-radius: 8px;
                     display: none;
+                    line-height: 1.5;
                 }}
-                .success {{ background: #dcfce7; color: #15803d; display: block !important; }}
-                .error {{ background: #fee2e2; color: #b91c1c; display: block !important; }}
+                .success {{ background: #dcfce7; color: #15803d; display: block !important; border: 1px solid #bbf7d0; }}
+                .error {{ background: #fee2e2; color: #b91c1c; display: block !important; border: 1px solid #fecaca; }}
             </style>
         </head>
         <body>
             <div class="card">
                 <h1>Nueva Contraseña</h1>
-                <p class="sub">Ingresa tu nueva contraseña para acceder a Minimarket.</p>
+                <p class="sub" id="subTitle">Crea una nueva contraseña segura para acceder a tu cuenta de Minimarket.</p>
                 <form id="resetForm">
-                    <label>Token de Verificación</label>
-                    <input type="text" id="token" value="{token_val}" required placeholder="Pega el token recibido por correo" />
+                    <input type="hidden" id="token" value="{token_val}" />
+                    <div id="formFields">
+                        <label>Nueva Contraseña (mínimo 8 caracteres)</label>
+                        <input type="password" id="pwd1" required minlength="8" maxlength="128" placeholder="••••••••" />
 
-                    <label>Nueva Contraseña (mínimo 8 caracteres)</label>
-                    <input type="password" id="pwd1" required minlength="8" maxlength="128" placeholder="••••••••" />
+                        <label>Confirmar Contraseña</label>
+                        <input type="password" id="pwd2" required minlength="8" maxlength="128" placeholder="••••••••" />
 
-                    <label>Confirmar Contraseña</label>
-                    <input type="password" id="pwd2" required minlength="8" maxlength="128" placeholder="••••••••" />
-
-                    <button type="submit" id="btn">Guardar Contraseña</button>
+                        <button type="submit" id="btn">Guardar Nueva Contraseña</button>
+                    </div>
                     <div id="msg"></div>
                 </form>
             </div>
@@ -740,7 +775,7 @@ def formulario_restablecer_contrasena(
 
                     if (p1 !== p2) {{
                         msg.className = 'error';
-                        msg.innerText = 'Las contraseñas no coinciden.';
+                        msg.innerText = 'Las contraseñas no coinciden. Verifica e intenta de nuevo.';
                         return;
                     }}
 
@@ -755,19 +790,21 @@ def formulario_restablecer_contrasena(
                         }});
                         const data = await res.json();
                         if (res.ok) {{
+                            document.getElementById('formFields').style.display = 'none';
+                            document.getElementById('subTitle').style.display = 'none';
                             msg.className = 'success';
-                            msg.innerText = data.mensaje || '¡Contraseña actualizada con éxito!';
-                            document.getElementById('resetForm').reset();
+                            msg.innerHTML = '<strong>¡Contraseña actualizada!</strong><br>' + (data.mensaje || 'Ya puedes volver a la aplicación e iniciar sesión.');
                         }} else {{
                             msg.className = 'error';
                             msg.innerText = data.detail || 'Ocurrió un error al restablecer la contraseña.';
+                            btn.disabled = false;
+                            btn.innerText = 'Guardar Nueva Contraseña';
                         }}
                     }} catch (err) {{
                         msg.className = 'error';
                         msg.innerText = 'Error de conexión con el servidor.';
-                    }} finally {{
                         btn.disabled = false;
-                        btn.innerText = 'Guardar Contraseña';
+                        btn.innerText = 'Guardar Nueva Contraseña';
                     }}
                 }});
             </script>

@@ -404,6 +404,14 @@ def test_flujo_olvide_contrasena():
         u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
         reset_token = security.create_password_reset_token(u)
 
+    # 2b. Verificar que el formulario HTML oculta el token y rechaza enlaces sin token
+    res_form_sin_token = client.get("/auth/restablecer-contrasena")
+    assert res_form_sin_token.status_code == 400
+    res_form_ok = client.get(f"/auth/restablecer-contrasena?token={reset_token}")
+    assert res_form_ok.status_code == 200
+    assert 'type="hidden" id="token"' in res_form_ok.text
+    assert "Token de Verificación" not in res_form_ok.text
+
     # 3. Restablecer con nueva contraseña
     nueva_clave = "ClaveSegura2026!"
     res_reset = client.post(
@@ -820,7 +828,15 @@ def test_wompi_sandbox_simulador_pagos():
     # 2. Preparar un pedido para pago
     with SessionLocal() as db:
         cli_u = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
-        p = db.scalar(select(m.Pedido).where(m.Pedido.id_cliente == cli_u.id_usuario))
+        p = db.scalar(
+            select(m.Pedido).where(
+                m.Pedido.id_cliente == cli_u.id_usuario,
+                m.Pedido.total > Decimal("2.50"),
+            )
+        )
+        if p is None:
+            p = db.scalar(select(m.Pedido).where(m.Pedido.id_cliente == cli_u.id_usuario))
+            p.total = Decimal("10.00")
         p.estado = "PENDIENTE"
         p.estado_pago = "PENDIENTE"
         p.metodo_pago = "CONTRA_ENTREGA"
