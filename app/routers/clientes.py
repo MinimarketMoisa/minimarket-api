@@ -178,6 +178,10 @@ def editar_cliente(
             )
         if usuario.id_rol != rol_obj.id_rol:
             usuario.id_rol = rol_obj.id_rol
+            if rol_obj.nombre == "REPARTIDOR":
+                perfil_rep = db.get(m.PerfilRepartidor, id_cliente)
+                if perfil_rep is None:
+                    db.add(m.PerfilRepartidor(id_repartidor=id_cliente, estado_operativo="LIBRE"))
             revocar_sesiones = True
 
     if revocar_sesiones:
