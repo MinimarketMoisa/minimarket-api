@@ -25,11 +25,12 @@ class Settings(BaseSettings):
     api_base_url: str = "http://localhost:8000"
     enable_docs: bool = True
 
-    # Configuración de Correo SMTP (Gmail u otros)
+    # Configuración de Correo SMTP (Gmail, Brevo, Zoho, Resend, etc.)
     smtp_server: str = "smtp.gmail.com"
     smtp_port: int = 465
     smtp_user: str = ""
     smtp_password: str = ""
+    smtp_from_email: str = ""
     email_verification_token_expire_hours: int = 24
 
     @field_validator("cors_origins", mode="before")

@@ -10,8 +10,13 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 
+def _remitente() -> str:
+    correo = (settings.smtp_from_email or settings.smtp_user).strip()
+    return f"Minimarket <{correo}>"
+
+
 def _enviar_email(msg: EmailMessage, destinatario: str) -> bool:
-    """Envía un correo electrónico utilizando el servidor SMTP SSL con verificación de certificado TLS/SSL."""
+    """Envía un correo electrónico utilizando SMTP (SSL en puerto 465 o STARTTLS en puerto 587)."""
     if not settings.smtp_user or not settings.smtp_password:
         logger.warning(
             "[EMAIL] No se han configurado credenciales SMTP (smtp_user o smtp_password). "
@@ -21,21 +26,29 @@ def _enviar_email(msg: EmailMessage, destinatario: str) -> bool:
 
     try:
         # Intentar con certifi si está disponible para evitar fallos de certificados raíz en Windows Server
-        context = None
         try:
             import certifi
             context = ssl.create_default_context(cafile=certifi.where())
         except Exception:
             context = ssl.create_default_context()
 
+        def _conectar(ssl_ctx):
+            if settings.smtp_port == 587:
+                srv = smtplib.SMTP(settings.smtp_server, settings.smtp_port, timeout=15)
+                srv.ehlo()
+                srv.starttls(context=ssl_ctx)
+                srv.ehlo()
+                return srv
+            return smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=ssl_ctx, timeout=15)
+
         try:
-            smtp = smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=context, timeout=15)
+            smtp = _conectar(context)
         except ssl.SSLCertVerificationError:
             # Fallback en Windows Server cuando el almacén de CA local no está presente
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE
-            smtp = smtplib.SMTP_SSL(settings.smtp_server, settings.smtp_port, context=context, timeout=15)
+            context_fallback = ssl.create_default_context()
+            context_fallback.check_hostname = False
+            context_fallback.verify_mode = ssl.CERT_NONE
+            smtp = _conectar(context_fallback)
 
         with smtp:
             smtp.login(settings.smtp_user, settings.smtp_password)
@@ -57,7 +70,7 @@ def enviar_correo_verificacion_registro(destinatario: str, nombre_usuario: str, 
 
     msg = EmailMessage()
     msg["Subject"] = "Verifica tu cuenta - Minimarket"
-    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["From"] = _remitente()
     msg["To"] = destinatario
 
     # Versión texto plano
@@ -150,7 +163,7 @@ def enviar_correo_cambio_email(destinatario: str, nombre_usuario: str, token: st
     nombre_seguro = html.escape(nombre_usuario)
     msg = EmailMessage()
     msg["Subject"] = "Confirmación de Cambio de Correo - Minimarket"
-    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
@@ -192,7 +205,7 @@ def enviar_correo_reset_password(destinatario: str, nombre_usuario: str, token: 
 
     msg = EmailMessage()
     msg["Subject"] = "Restablece tu contraseña - Minimarket"
-    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
@@ -252,7 +265,7 @@ def enviar_aviso_seguridad(destinatario: str, nombre_usuario: str, accion: str) 
 
     msg = EmailMessage()
     msg["Subject"] = "Alerta de Seguridad - Minimarket"
-    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
@@ -324,7 +337,7 @@ def enviar_factura_pedido(destinatario: str, nombre_usuario: str, datos: dict) -
 
     msg = EmailMessage()
     msg["Subject"] = f"Comprobante de Compra {ticket_num} - Minimarket"
-    msg["From"] = f"Minimarket <{settings.smtp_user}>"
+    msg["From"] = _remitente()
     msg["To"] = destinatario
 
     msg.set_content(
