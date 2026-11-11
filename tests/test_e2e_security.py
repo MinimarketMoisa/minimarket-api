@@ -27,17 +27,25 @@ from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from types import SimpleNamespace
+
 from app.config import Settings
 from app.database import SessionLocal
+from app.limiter import get_real_ip
 from app.main import app
 from app import models as m
 from app import security
+from app.schemas import extraer_digitos_telefono_sv
 
 
 client = TestClient(app)
 
 
 def limpiar_usuarios_test():
+    telefonos_default = {
+        "cliente@minimarket.test": "7000-0000",
+        "repartidor1@minimarket.test": "7100-0001",
+    }
     with SessionLocal() as db:
         for email in ["cliente@minimarket.test", "admin@minimarket.test", "repartidor1@minimarket.test"]:
             u = db.scalar(select(m.Usuario).where(m.Usuario.email == email))
@@ -48,11 +56,19 @@ def limpiar_usuarios_test():
                 u.activo = True
                 u.email_verificado = True
                 u.password = security.hash_password("Prueba12345")
-                # Cancelar pedidos pendientes viejos del test para no topar el límite anti-acaparamiento (5)
-                pedidos_pendientes = db.scalars(
-                    select(m.Pedido).where(m.Pedido.id_cliente == u.id_usuario, m.Pedido.estado == "PENDIENTE")
+                if email in telefonos_default:
+                    try:
+                        extraer_digitos_telefono_sv(u.telefono or "")
+                    except ValueError:
+                        u.telefono = telefonos_default[email]
+                # Cancelar pedidos activos viejos del test para respetar el límite de 1 pedido activo
+                pedidos_activos = db.scalars(
+                    select(m.Pedido).where(
+                        m.Pedido.id_cliente == u.id_usuario,
+                        m.Pedido.estado.in_(("PENDIENTE", "PREPARADO", "EN_RUTA")),
+                    )
                 ).all()
-                for p in pedidos_pendientes:
+                for p in pedidos_activos:
                     p.estado = "CANCELADO"
         db.commit()
 
@@ -959,6 +975,301 @@ def test_wompi_sandbox_simulador_pagos():
     assert res_est.json()["email_verificado"] is True
 
 
+# ---------------------------------------------------------------------------
+# Anti-troll: Teléfono real único de El Salvador, correos desechables y tope de 1 pedido activo
+# ---------------------------------------------------------------------------
+def test_get_real_ip_proxy_headers():
+    req_proxy = SimpleNamespace(
+        client=SimpleNamespace(host="127.0.0.1"),
+        headers={"x-forwarded-for": "190.53.10.25, 127.0.0.1"},
+    )
+    assert get_real_ip(req_proxy) == "190.53.10.25"
+
+    req_direct = SimpleNamespace(
+        client=SimpleNamespace(host="181.200.4.12"),
+        headers={"x-forwarded-for": "1.2.3.4"},
+    )
+    assert get_real_ip(req_direct) == "181.200.4.12"
+
+
+def test_registro_telefono_real_y_unico():
+    email_temp_1 = "temp_tel_sv_1@minimarket.test"
+    email_temp_2 = "temp_tel_sv_2@minimarket.test"
+    admin_token = get_token("admin@minimarket.test")
+
+    def _borrar_temp_users():
+        with SessionLocal() as db:
+            for em in (email_temp_1, email_temp_2):
+                u = db.scalar(select(m.Usuario).where(m.Usuario.email == em))
+                if u:
+                    pedidos_u = db.scalars(select(m.Pedido).where(m.Pedido.id_cliente == u.id_usuario)).all()
+                    for p in pedidos_u:
+                        db.delete(p)
+                    dirs_u = db.scalars(select(m.Direccion).where(m.Direccion.id_cliente == u.id_usuario)).all()
+                    for d in dirs_u:
+                        db.delete(d)
+                    db.flush()
+                    db.delete(u)
+            db.commit()
+
+    _borrar_temp_users()
+    try:
+        # 1. Registro sin teléfono -> 422
+        res_sin_tel = client.post(
+            "/auth/registro",
+            json={
+                "nombre_completo": "Usuario Sin Tel",
+                "email": email_temp_1,
+                "password": "PasswordSegura123",
+            },
+        )
+        assert res_sin_tel.status_code == 422
+
+        # 2. Formatos inválidos o extranjeros -> 422
+        for tel_invalido in ["12345", "5555-5555", "+1 555-123-4567"]:
+            res_inv = client.post(
+                "/auth/registro",
+                json={
+                    "nombre_completo": "Usuario Tel Invalido",
+                    "email": email_temp_1,
+                    "password": "PasswordSegura123",
+                    "telefono": tel_invalido,
+                },
+            )
+            assert res_inv.status_code == 422, f"Debió rechazar '{tel_invalido}' y devolvió {res_inv.status_code}"
+
+        # 3. Números ficticios / patrones de bot -> 422
+        for tel_fake in ["7777-7777", "7000-0000", "7123-4567", "7070-7070"]:
+            res_fake = client.post(
+                "/auth/registro",
+                json={
+                    "nombre_completo": "Bot Troll",
+                    "email": email_temp_1,
+                    "password": "PasswordSegura123",
+                    "telefono": tel_fake,
+                },
+            )
+            assert res_fake.status_code == 422, f"Debió rechazar número bot '{tel_fake}' y devolvió {res_fake.status_code}"
+
+        # 4. Correo desechable -> 422
+        res_desechable = client.post(
+            "/auth/registro",
+            json={
+                "nombre_completo": "Correo Temporal",
+                "email": "troll_bot@yopmail.com",
+                "password": "PasswordSegura123",
+                "telefono": "7412-9876",
+            },
+        )
+        assert res_desechable.status_code == 422
+
+        # 5. Teléfono salvadoreño real con prefijo +503 -> 201 y normalizado XXXX-XXXX
+        res_ok = client.post(
+            "/auth/registro",
+            json={
+                "nombre_completo": "Cliente Real SV",
+                "email": email_temp_1,
+                "password": "PasswordSegura123",
+                "telefono": "+503 7412-9876",
+            },
+        )
+        assert res_ok.status_code == 201, f"Registro válido falló: {res_ok.text}"
+        data_ok = res_ok.json()
+        assert data_ok["telefono"] == "7412-9876"
+        id_temp_1 = data_ok["id_usuario"]
+
+        # 6. Mismo teléfono en distinto formato con otro correo -> 409 Conflict
+        for tel_dup in ["74129876", "50374129876"]:
+            res_dup = client.post(
+                "/auth/registro",
+                json={
+                    "nombre_completo": "Multicuenta Mismo Tel",
+                    "email": email_temp_2,
+                    "password": "PasswordSegura123",
+                    "telefono": tel_dup,
+                },
+            )
+            assert res_dup.status_code == 409, f"Duplicado '{tel_dup}' devolvió {res_dup.status_code}"
+
+        # 7. Admin no puede dejar teléfono vacío ni duplicar el de otro usuario
+        res_patch_vacio = client.patch(
+            f"/clientes/{id_temp_1}",
+            headers=auth_headers(admin_token),
+            json={"telefono": "   "},
+        )
+        assert res_patch_vacio.status_code == 422
+
+        with SessionLocal() as db:
+            cli_ref = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+            tel_cli = cli_ref.telefono
+
+        res_patch_dup = client.patch(
+            f"/clientes/{id_temp_1}",
+            headers=auth_headers(admin_token),
+            json={"telefono": tel_cli},
+        )
+        assert res_patch_dup.status_code == 409
+
+        # 8. Cuenta sin teléfono válido en BD no puede crear pedidos -> 400
+        with SessionLocal() as db:
+            u1 = db.get(m.Usuario, id_temp_1)
+            u1.email_verificado = True
+            u1.telefono = None
+            db.commit()
+
+        tok_temp_1 = get_token(email_temp_1, password="PasswordSegura123")
+        res_ped_sin_tel = client.post(
+            "/pedidos",
+            headers=auth_headers(tok_temp_1),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res_ped_sin_tel.status_code == 400
+        assert "teléfono válido" in res_ped_sin_tel.json()["detail"].lower()
+    finally:
+        _borrar_temp_users()
+
+
+def test_limite_un_pedido_activo_por_cuenta():
+    limpiar_usuarios_test()
+    cli_token = get_token("cliente@minimarket.test")
+    admin_token = get_token("admin@minimarket.test")
+    email_gemelo = "temp_mismo_tel@minimarket.test"
+    ids_creados = []
+
+    def _limpiar_gemelo():
+        with SessionLocal() as db:
+            u = db.scalar(select(m.Usuario).where(m.Usuario.email == email_gemelo))
+            if u:
+                for p in db.scalars(select(m.Pedido).where(m.Pedido.id_cliente == u.id_usuario)).all():
+                    db.delete(p)
+                db.flush()
+                db.delete(u)
+                db.commit()
+
+    _limpiar_gemelo()
+    try:
+        # 1. Primer pedido activo -> 201 Created
+        res1 = client.post(
+            "/pedidos",
+            headers=auth_headers(cli_token),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res1.status_code == 201, f"Primer pedido falló: {res1.text}"
+        id_pedido_1 = res1.json()["id_pedido"]
+        ids_creados.append(id_pedido_1)
+
+        # 2. Segundo pedido simultáneo con la misma cuenta -> 429
+        res2 = client.post(
+            "/pedidos",
+            headers=auth_headers(cli_token),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res2.status_code == 429
+
+        # 3. Otra cuenta heredada con el mismo teléfono normalizado tampoco puede crear pedido simultáneo -> 429
+        with SessionLocal() as db:
+            cli_ref = db.scalar(select(m.Usuario).where(m.Usuario.email == "cliente@minimarket.test"))
+            digitos_cli = extraer_digitos_telefono_sv(cli_ref.telefono)
+            rol_cli = db.scalar(select(m.Rol).where(m.Rol.nombre == "CLIENTE"))
+            u_gem = m.Usuario(
+                id_rol=rol_cli.id_rol,
+                nombre_completo="Cuenta Gemela",
+                email=email_gemelo,
+                password=security.hash_password("Prueba12345"),
+                telefono=f"503{digitos_cli}",
+                email_verificado=True,
+                activo=True,
+            )
+            db.add(u_gem)
+            db.commit()
+
+        tok_gem = get_token(email_gemelo)
+        res_gem = client.post(
+            "/pedidos",
+            headers=auth_headers(tok_gem),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res_gem.status_code == 429
+
+        # 4. Mientras esté en PREPARADO tampoco deja crear otro pedido -> 429
+        res_prep = client.patch(
+            f"/pedidos/{id_pedido_1}/estado",
+            headers=auth_headers(admin_token),
+            json={"estado": "PREPARADO"},
+        )
+        assert res_prep.status_code == 200
+
+        res3 = client.post(
+            "/pedidos",
+            headers=auth_headers(cli_token),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res3.status_code == 429
+
+        # 5. Al cancelarlo (estado final), el cliente vuelve a poder pedir -> 201
+        res_cancel1 = client.patch(
+            f"/pedidos/{id_pedido_1}/estado",
+            headers=auth_headers(admin_token),
+            json={"estado": "CANCELADO"},
+        )
+        assert res_cancel1.status_code == 200
+
+        res4 = client.post(
+            "/pedidos",
+            headers=auth_headers(cli_token),
+            json={
+                "tipo_entrega": "RETIRO",
+                "id_sucursal": 1,
+                "metodo_pago": "CONTRA_ENTREGA",
+                "canal": "WEB",
+                "items": [{"id_producto": 1, "cantidad": 1}],
+            },
+        )
+        assert res4.status_code == 201, f"Debió permitir pedir tras cancelar el anterior: {res4.text}"
+        ids_creados.append(res4.json()["id_pedido"])
+    finally:
+        for pid in ids_creados:
+            with SessionLocal() as db:
+                p_curr = db.get(m.Pedido, pid)
+                if p_curr and p_curr.estado not in ("CANCELADO", "ENTREGADO"):
+                    client.patch(
+                        f"/pedidos/{pid}/estado",
+                        headers=auth_headers(admin_token),
+                        json={"estado": "CANCELADO"},
+                    )
+        _limpiar_gemelo()
+
+
 if __name__ == "__main__":
     print("Ejecutando pruebas E2E y de seguridad...")
     limpiar_usuarios_test()
@@ -998,4 +1309,10 @@ if __name__ == "__main__":
     print("  [OK] Tracking en tiempo real: REST, WebSocket y retransmision de coordenadas del repartidor")
     test_wompi_sandbox_simulador_pagos()
     print("  [OK] Wompi Sandbox: Simulador completo de cobro con tarjeta, aprobaciones, rechazos y webhook/email")
+    test_get_real_ip_proxy_headers()
+    print("  [OK] Limiter: Extraccion segura de IP real detras de proxy local")
+    test_registro_telefono_real_y_unico()
+    print("  [OK] Anti-troll: Validacion de telefono SV real, unico y bloqueo de correos desechables")
+    test_limite_un_pedido_activo_por_cuenta()
+    print("  [OK] Anti-troll: Limite de 1 pedido activo por cuenta y por telefono")
     print("\nTODAS LAS PRUEBAS E2E Y DE SEGURIDAD PASARON EXITOSAMENTE!")
