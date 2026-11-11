@@ -12,7 +12,7 @@ Está diseñada para alimentar de forma unificada la **tienda web**, las **aplic
 | :--- | :--- | :--- |
 | **Framework HTTP / WS** | FastAPI + Uvicorn (ASGI) | Endpoints REST tipados, validación automática, BackgroundTasks y WebSockets en vivo |
 | **Base de datos y ORM** | PostgreSQL 16 + SQLAlchemy 2 (`psycopg`) | Persistencia relacional, restricciones de integridad y bloqueos pesimistas (`FOR UPDATE`) |
-| **Autenticación y Seguridad** | PyJWT + PBKDF2-SHA256 + SlowAPI | JWT revocables, compatibilidad con Django Auth, anti-fuerza bruta y rate limiting por IP real |
+| **Autenticación y Seguridad** | PyJWT + PBKDF2-SHA256 + SlowAPI | JWT revocables, compatibilidad con Django Auth, anti-fuerza bruta y rate limiting |
 | **Notificaciones** | SMTP (SSL/TLS) | Verificación de correo, cambio de email, recuperación de contraseña, alertas y facturas HTML |
 | **Documentación interactiva** | OpenAPI / Swagger UI / ReDoc | Disponible en `/docs` y `/redoc` (controlable en producción con `ENABLE_DOCS`) |
 
@@ -27,10 +27,10 @@ minimarket-api/
 │   ├── config.py              # Configuración Pydantic Settings y validaciones estrictas de producción
 │   ├── database.py            # Motor SQLAlchemy y sesiones PostgreSQL
 │   ├── models.py              # Esquema relacional ORM (14 tablas + constraints e índices)
-│   ├── schemas.py             # Esquemas de entrada/salida y validadores anti-bot/negocio
+│   ├── schemas.py             # Esquemas Pydantic de entrada/salida y validaciones
 │   ├── security.py            # Hashing PBKDF2 compatible con Django y tokens JWT tipados
 │   ├── deps.py                # Dependencias de autenticación, revocación y control RBAC por rol
-│   ├── limiter.py             # Rate limiter SlowAPI con extracción de IP real tras proxy
+│   ├── limiter.py             # Configuración del rate limiter SlowAPI
 │   ├── init_db.py             # Creación de tablas, columnas evolutivas y roles base
 │   ├── seed.py                # Datos iniciales de ejemplo (sucursales, catálogo y usuarios)
 │   ├── routers/
@@ -48,7 +48,7 @@ minimarket-api/
 │       ├── tracking.py        # Gestor de salas WebSocket por pedido
 │       └── email.py           # Plantillas HTML MiniMarket y envío SMTP en segundo plano
 ├── tests/
-│   └── test_e2e_security.py   # Suite automatizada E2E y de seguridad (27 pruebas)
+│   └── test_e2e_security.py   # Suite automatizada E2E y de seguridad (24 pruebas)
 ├── core/ & api/ & manage.py   # Integración y panel administrativo Django sobre la misma BD
 ├── cambiar_clave.py           # Utilidad CLI para restablecer contraseña y revocar sesiones
 ├── poblar_500_productos.py    # Script de carga masiva de catálogo e inventario
@@ -78,10 +78,7 @@ minimarket-api/
 ## Funcionamiento Interno de la API
 
 ### 1. Autenticación, Verificación y Seguridad
-- **Registro con filtros anti-troll** (`POST /auth/registro`):
-  - Exige teléfono válido de El Salvador (`2`, `6` o `7` + 7 dígitos, aceptando `+503` o `503`, normalizado a `XXXX-XXXX`).
-  - Bloquea patrones ficticios o de bots (`7777-7777`, `7000-0000`, secuencias `7123-4567`, pares repetidos `7070-7070`) y prohíbe teléfonos duplicados entre cuentas (`409 Conflict`).
-  - Rechaza dominios de correo desechables (`yopmail.com`, `10minutemail.com`, `tempmail.com`, etc.).
+- **Registro de clientes** (`POST /auth/registro`): Valida nombre, formato de correo único (case-insensitive) y contraseña de 8 a 128 caracteres, asignando el rol `CLIENTE` (con `telefono` opcional).
 - **Verificación de correo obligatoria**: Tras el registro se envía un enlace firmado (`type="email_verification"`). Ni `POST /auth/login` ni los endpoints protegidos permiten operar hasta confirmar el correo.
 - **Tokens JWT tipados y revocación inmediata**:
   - Cada JWT incluye `type` (`access`, `email_verification`, `email_change`, `password_reset`), `ver` (`token_version`) y `pwd` (`password_fingerprint`).
@@ -90,12 +87,12 @@ minimarket-api/
   - Usa `DUMMY_HASH` de PBKDF2 en tiempo constante para que usuarios inexistentes respondan igual que contraseñas incorrectas.
   - Bloquea temporalmente la cuenta durante 15 minutos tras 5 intentos fallidos consecutivos.
   - Los endpoints de recuperación/reenvío responden de forma neutra sin revelar si un correo existe y aplican cooldown de 60 segundos entre envíos.
-- **Rate limiting tras proxy**: [`get_real_ip`](app/limiter.py) toma `x-forwarded-for` o `cf-connecting-ip` cuando el tráfico llega desde proxy local (`127.0.0.1` / `::1`) para aislar la tasa de peticiones por cliente real.
+- **Rate limiting con SlowAPI**: Protege los endpoints públicos críticos (`/auth/registro`, `/auth/login`, recuperación de contraseña y reenvíos) usando [`limiter`](app/limiter.py).
 - **Cabeceras de seguridad HTTP**: Todas las respuestas incluyen `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` y `Strict-Transport-Security` (en producción).
 
 ### 2. Creación de Pedidos y Control de Inventario
 Al invocar `POST /pedidos`:
-1. **Reglas anti-acaparamiento**: Verifica que la cuenta tenga un teléfono salvadoreño válido registrado y limita a **máximo 1 pedido activo** (`PENDIENTE`, `PREPARADO`, `EN_RUTA`) por cuenta y por número de teléfono hasta que el pedido finalice (`ENTREGADO` o `CANCELADO`).
+1. **Control anti-acaparamiento**: Limita a un máximo de **5 pedidos en estado `PENDIENTE`** simultáneos por cliente (`429 Too Many Requests` si alcanza el tope).
 2. **Selección de sucursal con bloqueo transaccional**:
    - Si es `DOMICILIO`, filtra sucursales activas del mismo municipio que la dirección del cliente y agrega `COSTO_ENVIO`.
    - Si es `RETIRO`, evalúa la sucursal seleccionada (`costo_envio = 0`).
@@ -134,7 +131,7 @@ Al invocar `POST /pedidos`:
 ### Autenticación (`/auth`)
 | Método | Ruta | Acceso | Descripción |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/registro` | Público (`5/hour`) | Crea usuario `CLIENTE`, valida teléfono SV único y envía verificación por correo |
+| `POST` | `/auth/registro` | Público (`5/hour`) | Crea usuario `CLIENTE` y envía verificación por correo |
 | `POST` | `/auth/login` | Público (`10/minute`) | Autenticación OAuth2 password; retorna JWT `access_token` |
 | `GET` | `/auth/me` | Autenticado | Perfil del usuario autenticado |
 | `GET` | `/auth/estado-verificacion` | Público (`30/minute`) | Consulta si un correo ya completó verificación |
@@ -169,7 +166,7 @@ Al invocar `POST /pedidos`:
 ### Pedidos, Seguimiento y Denuncias (`/pedidos`)
 | Método | Ruta | Acceso | Descripción |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/pedidos` | `CLIENTE`, `REPARTIDOR` | Crea pedido (máx. 1 activo), asigna sucursal/repartidor y envía factura |
+| `POST` | `/pedidos` | `CLIENTE`, `REPARTIDOR` | Crea pedido (máx. 5 `PENDIENTE` activos), asigna sucursal/repartidor y envía factura |
 | `GET` | `/pedidos/mis-pedidos` | `CLIENTE`, `REPARTIDOR` | Historial paginado de pedidos propios |
 | `GET` | `/pedidos` | `EMPLEADO`, `ADMIN` | Lista pedidos (filtrado automático por sucursal si es `EMPLEADO`) |
 | `GET` | `/pedidos/codigo/{codigo_pedido}` | Autorizado | Busca pedido por código `PED-XXXXXX` |
@@ -205,7 +202,7 @@ Al invocar `POST /pedidos`:
 | :--- | :--- | :--- | :--- |
 | `GET` | `/clientes` | `ADMIN` | Lista usuarios con búsqueda y filtros (`rol`, `activo`, `email_verificado`) |
 | `GET` | `/clientes/{id_cliente}` | `ADMIN` | Detalle completo de usuario, direcciones y conteo de pedidos |
-| `PATCH` | `/clientes/{id_cliente}` | `ADMIN` | Edita datos, rol, estado o teléfono único con revocación de sesión |
+| `PATCH` | `/clientes/{id_cliente}` | `ADMIN` | Edita datos, rol, estado o teléfono con revocación de sesión |
 | `DELETE` | `/clientes/{id_cliente}` | `ADMIN` | Desactiva usuario, reasigna pedidos si es repartidor y revoca sesiones |
 | `POST` | `/clientes/{id_cliente}/reactivar` | `ADMIN` | Reactiva usuario sin revivir JWT emitidos antes de desactivarlo |
 | `GET` | `/reportes/pedidos/{id_pedido}` | `EMPLEADO`, `ADMIN` | Auditoría financiera y operativa de un pedido |
@@ -282,7 +279,7 @@ python -m app.seed
 
 ## Pruebas Automatizadas y Scripts Útiles
 
-La suite completa en [`tests/test_e2e_security.py`](tests/test_e2e_security.py) valida de extremo a extremo contra PostgreSQL todas las reglas críticas de negocio, seguridad JWT, concurrencia de inventario, rate limiting, tracking WebSocket, simulador Wompi Sandbox, unicidad de teléfono SV y límite de 1 pedido activo:
+La suite completa en [`tests/test_e2e_security.py`](tests/test_e2e_security.py) valida de extremo a extremo contra PostgreSQL todas las reglas críticas de negocio, seguridad JWT, concurrencia de inventario, rate limiting, tracking WebSocket y el simulador Wompi Sandbox:
 
 ```bash
 # Ejecutar con pytest (recomendado)
