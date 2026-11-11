@@ -27,7 +27,6 @@ from ..schemas import (
     TokenOut,
     UsuarioOut,
     VerificarEmailIn,
-    extraer_digitos_telefono_sv,
 )
 from ..security import (
     DUMMY_HASH,
@@ -318,20 +317,6 @@ def registro(
     email = str(data.email).lower()
     if db.scalar(select(m.Usuario.id_usuario).where(func.lower(m.Usuario.email) == email)):
         raise HTTPException(status.HTTP_409_CONFLICT, "Ese correo ya está registrado")
-
-    digitos_tel = extraer_digitos_telefono_sv(data.telefono)
-    tel_existe = db.scalar(
-        select(m.Usuario.id_usuario).where(
-            m.Usuario.telefono.is_not(None),
-            func.length(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g")) >= 8,
-            func.right(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g"), 8) == digitos_tel,
-        )
-    )
-    if tel_existe:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "Ese número de teléfono ya está registrado en otra cuenta",
-        )
 
     rol = db.scalar(select(m.Rol).where(m.Rol.nombre == "CLIENTE"))
     if rol is None:

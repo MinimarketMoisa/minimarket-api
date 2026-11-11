@@ -1,4 +1,3 @@
-import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal, Optional
@@ -17,31 +16,6 @@ EstadoRepartidor = Literal["LIBRE", "PENDIENTE"]
 
 ROLES_PERMITIDOS = {"CLIENTE", "REPARTIDOR", "EMPLEADO", "ADMIN"}
 
-DOMINIOS_CORREO_DESECHABLES = {
-    "yopmail.com",
-    "10minutemail.com",
-    "tempmail.com",
-    "temp-mail.org",
-    "guerrillamail.com",
-    "mailinator.com",
-    "trashmail.com",
-    "dispostable.com",
-    "sharklasers.com",
-    "getnada.com",
-    "maildrop.cc",
-}
-
-TELEFONOS_FALSOS_COMUNES = {
-    "71234567",
-    "70123456",
-    "61234567",
-    "21234567",
-    "76543210",
-    "65432109",
-    "79876543",
-    "69876543",
-}
-
 
 def validar_password(v: str) -> str:
     if len(v) < 8 or len(v) > 128:
@@ -55,50 +29,7 @@ def validar_email(v: str) -> str:
     v = v.strip().lower()
     if "@" not in v or "." not in v.split("@")[-1] or len(v) < 5 or len(v) > 254:
         raise ValueError("Dirección de correo electrónico inválida")
-    dominio = v.split("@")[-1]
-    if dominio in DOMINIOS_CORREO_DESECHABLES:
-        raise ValueError("No se permiten correos temporales o desechables")
     return v
-
-
-def extraer_digitos_telefono_sv(v: str) -> str:
-    if not isinstance(v, str) or not v.strip():
-        raise ValueError("El número de teléfono es obligatorio")
-    limpio = re.sub(r"[\s().-]+", "", v.strip())
-    if limpio.startswith("+503"):
-        limpio = limpio[4:]
-    elif limpio.startswith("503") and len(limpio) == 11:
-        limpio = limpio[3:]
-    elif limpio.startswith("+"):
-        raise ValueError("Solo se permiten números telefónicos de El Salvador (+503)")
-
-    if not re.fullmatch(r"[267]\d{7}", limpio):
-        raise ValueError(
-            "Ingresa un número telefónico válido de El Salvador (8 dígitos iniciando con 2, 6 o 7, ej. 7412-9876)"
-        )
-    return limpio
-
-
-def validar_telefono_sv(v: str, *, estricto_antibot: bool = True) -> str:
-    d = extraer_digitos_telefono_sv(v)
-    if estricto_antibot:
-        es_secuencial = (
-            d in "0123456789"
-            or d in "9876543210"
-            or d[1:] in "0123456789"
-            or d[1:] in "9876543210"
-        )
-        if (
-            len(set(d)) == 1
-            or len(set(d[1:])) == 1
-            or d == d[:2] * 4
-            or es_secuencial
-            or d in TELEFONOS_FALSOS_COMUNES
-        ):
-            raise ValueError(
-                "El número telefónico parece ficticio o inválido. Ingresa un número real de contacto."
-            )
-    return f"{d[:4]}-{d[4:]}"
 
 
 def validar_imagen_url(v: Optional[str]) -> Optional[str]:
@@ -127,7 +58,7 @@ class RegistroIn(BaseModel):
     nombre_completo: str = Field(min_length=2, max_length=150)
     email: str = Field(min_length=5, max_length=254)
     password: str = Field(min_length=8, max_length=128)
-    telefono: str = Field(min_length=8, max_length=20)
+    telefono: Optional[str] = Field(default=None, max_length=20)
 
     @field_validator("email")
     @classmethod
@@ -138,11 +69,6 @@ class RegistroIn(BaseModel):
     @classmethod
     def _val_pwd(cls, v: str) -> str:
         return validar_password(v)
-
-    @field_validator("telefono")
-    @classmethod
-    def _val_tel(cls, v: str) -> str:
-        return validar_telefono_sv(v, estricto_antibot=True)
 
 
 class TokenOut(BaseModel):
@@ -185,15 +111,6 @@ class ClienteAdminUpdate(BaseModel):
     email_verificado: Optional[bool] = None
     rol: Optional[str] = None
     password: Optional[str] = Field(None, min_length=8, max_length=128)
-
-    @field_validator("telefono")
-    @classmethod
-    def _val_tel(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        if not v.strip():
-            raise ValueError("El teléfono no puede quedar vacío; envía null si no deseas modificarlo")
-        return validar_telefono_sv(v, estricto_antibot=False)
 
     @field_validator("password")
     @classmethod

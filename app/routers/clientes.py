@@ -13,7 +13,6 @@ from ..schemas import (
     ClienteAdminOut,
     ClienteAdminUpdate,
     DireccionOut,
-    extraer_digitos_telefono_sv,
 )
 from ..security import hash_password
 
@@ -157,20 +156,6 @@ def editar_cliente(
         usuario.nombre_completo = data.nombre_completo
 
     if data.telefono is not None:
-        digitos_tel = extraer_digitos_telefono_sv(data.telefono)
-        tel_existe = db.scalar(
-            select(m.Usuario.id_usuario).where(
-                m.Usuario.id_usuario != id_cliente,
-                m.Usuario.telefono.is_not(None),
-                func.length(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g")) >= 8,
-                func.right(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g"), 8) == digitos_tel,
-            )
-        )
-        if tel_existe:
-            raise HTTPException(
-                status.HTTP_409_CONFLICT,
-                "Ese número de teléfono ya está registrado por otro usuario",
-            )
         usuario.telefono = data.telefono
 
     if data.activo is not None and data.activo != usuario.activo:

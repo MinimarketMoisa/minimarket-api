@@ -86,12 +86,7 @@ def run() -> None:
         db.add(m.Empleado(id_empleado=emp.id_usuario, id_sucursal=sucursales[0].id_sucursal, cargo="Cajero"))
 
         for i, (lat, lon) in enumerate([(13.4840, -88.1840), (13.4960, -88.1700)], start=1):
-            r = usuario(
-                f"Repartidor {i}",
-                f"repartidor{i}@minimarket.test",
-                "REPARTIDOR",
-                telefono=f"7100-000{i}",
-            )
+            r = usuario(f"Repartidor {i}", f"repartidor{i}@minimarket.test", "REPARTIDOR")
             db.add(m.PerfilRepartidor(
                 id_repartidor=r.id_usuario, estado_operativo="LIBRE", placa_vehiculo=f"M-00{i}",
                 latitud_actual=D(lat), longitud_actual=D(lon), ultima_actualizacion=datetime.now(timezone.utc),

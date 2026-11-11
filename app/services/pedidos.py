@@ -23,7 +23,6 @@ from ..schemas import (
     SeguimientoPedidoOut,
     SucursalEntregaOut,
     SucursalSeguimientoOut,
-    extraer_digitos_telefono_sv,
 )
 
 ESTADOS_ACTIVOS = ("PENDIENTE", "PREPARADO", "EN_RUTA")
@@ -435,44 +434,17 @@ def rechazar_pedido(
 
 # ------------------------------------------------------------------ pedidos
 def crear_pedido(db: Session, cliente: m.Usuario, data: PedidoIn) -> m.Pedido:
-    # Exigir teléfono válido de El Salvador y bloquear cuentas sin contacto verificable
-    try:
-        digitos_tel = extraer_digitos_telefono_sv(cliente.telefono or "")
-    except ValueError:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "Tu cuenta debe tener un número de teléfono válido de El Salvador registrado para realizar pedidos.",
-        )
-
-    # Límite estricto: máximo 1 pedido activo por cuenta (hasta que se entregue o cancele)
-    activos_cliente = db.scalar(
+    # Límite de pedidos pendientes para evitar acaparamiento de stock
+    pendientes_cliente = db.scalar(
         select(func.count(m.Pedido.id_pedido)).where(
             m.Pedido.id_cliente == cliente.id_usuario,
-            m.Pedido.estado.in_(ESTADOS_ACTIVOS),
+            m.Pedido.estado == "PENDIENTE",
         )
     ) or 0
-    if activos_cliente >= 1:
+    if pendientes_cliente >= 5:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            "Solo puedes tener 1 pedido activo a la vez. Espera a que se entregue o cancélalo antes de crear otro.",
-        )
-
-    # Respaldo extra: no permitir más de 1 pedido activo asociado al mismo teléfono entre cuentas
-    otro_activo_mismo_tel = db.scalar(
-        select(m.Pedido.id_pedido)
-        .join(m.Usuario, m.Pedido.id_cliente == m.Usuario.id_usuario)
-        .where(
-            m.Pedido.estado.in_(ESTADOS_ACTIVOS),
-            m.Pedido.id_cliente != cliente.id_usuario,
-            m.Usuario.telefono.is_not(None),
-            func.length(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g")) >= 8,
-            func.right(func.regexp_replace(m.Usuario.telefono, r"[^0-9]", "", "g"), 8) == digitos_tel,
-        )
-    )
-    if otro_activo_mismo_tel is not None:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "Ya existe un pedido activo asociado a ese número de teléfono. Espera a que finalice antes de crear otro.",
+            "Has alcanzado el límite de 5 pedidos pendientes activos. Espera a que se procesen o cancela los anteriores.",
         )
 
     # 1) juntar lineas repetidas del mismo producto
